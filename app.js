@@ -2572,7 +2572,7 @@ document.addEventListener('animationend', (e) => {
 // Remember where you were, so "Back to Flashy" returns to the same tab and scroll spot.
 document.addEventListener('click', (e) => {
   const link = e.target.closest('.footer-links a');
-  if (!link) return;
+  if (!link || link.href.startsWith('mailto:')) return; // the email link doesn't leave Flashy
   const tab = document.querySelector('.tab.active');
   const spot = {
     screen: $('screen-lobby').classList.contains('hidden') ? 'login' : 'lobby',
