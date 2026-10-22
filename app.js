@@ -148,6 +148,7 @@ const $ = (id) => document.getElementById(id);
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const randNonZero = (a, b) => { let n; do { n = rand(a, b); } while (n === 0); return n; };
 const pick = (arr) => arr[rand(0, arr.length - 1)];
+const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
 const fmt = (n) => { const s = String(Number(Number(n).toFixed(2))); return s.startsWith('-') ? '−' + s.slice(1) : s; };
 const fmtRight = (n) => (n < 0 ? `(${fmt(n)})` : fmt(n));
 const signed = (n) => (n < 0 ? `− ${-n}` : `+ ${n}`);
@@ -208,7 +209,7 @@ function upgradeProfile(p) {
     ownedAvatars: [...FREE_AVATARS], ownedFrames: [...FREE_FRAMES],
     freezes: 0, subjectStats: {}, daily: {}, badges: [],
     bestCombo: 0, perfects: 0, purchases: 0, speedy: false,
-    gemsEarned: p.gems || 0, reviewQueue: [],
+    gemsEarned: p.gems || 0, reviewQueue: [], mode: 'type',
   };
   Object.entries(defaults).forEach(([k, v]) => { if (p[k] === undefined) p[k] = v; });
   // everyone always owns the free ones, and unknown picks fall back to a free one
@@ -487,8 +488,27 @@ const WARMUP_LEVELS = {
   div: () => [randNonZero(-6, 6), rand(-6, 6)],
 };
 
-function basicQuestion(op, grade, easy) {
-  const [x, y] = easy ? WARMUP_LEVELS[op]() : LEVELS[op][grade]();
+// "Type the answer" mode keeps every problem simple: one number with up to
+// 2 digits and the other with 1 digit (like 34 + 7 or 34 × 7). Negatives stay from 6th grade.
+const SIMPLE_LEVELS = {
+  add: (g) => (g <= 1 ? LEVELS.add[g]() : g >= 6 ? [rand(-50, 50), randNonZero(-9, 9)] : [rand(10, 99), rand(1, 9)]),
+  sub: (g) => {
+    if (g === 0) return LEVELS.sub[0]();
+    if (g === 1) { const a = rand(2, 10); return [a, rand(0, Math.min(a, 9))]; }
+    return g >= 6 ? [rand(-50, 50), randNonZero(-9, 9)] : [rand(10, 99), rand(1, 9)];
+  },
+  mul: (g) => (g <= 2 ? LEVELS.mul[g]() : g === 3 ? [rand(2, 10), rand(2, 9)] : g >= 6 ? [randNonZero(-30, 30), randNonZero(-9, 9)] : [rand(10, 50), rand(2, 9)]),
+  // [divisor, answer], keeping the number being divided at 2 digits
+  div: (g) => {
+    if (g <= 2) return LEVELS.div[g]();
+    const d = rand(2, 9) * (g >= 6 && rand(0, 1) ? -1 : 1);
+    const most = Math.floor(99 / Math.abs(d));
+    return [d, g >= 6 ? rand(-most, most) : rand(1, most)];
+  },
+};
+
+function basicQuestion(op, grade, easy, simple) {
+  const [x, y] = easy ? WARMUP_LEVELS[op]() : simple ? SIMPLE_LEVELS[op](grade) : LEVELS[op][grade]();
   let a, b, answer;
   if (op === 'add') { a = x; b = y; answer = a + b; }
   if (op === 'sub') { a = x; b = y; answer = a - b; }
@@ -550,14 +570,83 @@ const EXTRA_GEN = {
   },
 };
 
-function makeQuestion(op, grade, easy = false) {
+// Simple versions of fractions, decimals, percents and equations for "Type the answer".
+const SIMPLE_EXTRA = {
+  frac(g) {
+    const kind = pick(g <= 5 ? ['add', 'unit'] : ['add', 'sub', 'of']);
+    const d = rand(3, 9);
+    if (kind === 'add' || kind === 'sub') {
+      let a = rand(1, d - 1), b = rand(1, d - 1);
+      if (kind === 'sub' && a < b) [a, b] = [b, a];
+      return kind === 'add'
+        ? { text: `${a}/${d} + ${b}/${d}`, ask: `= ? / ${d}`, answer: a + b }
+        : { text: `${a}/${d} − ${b}/${d}`, ask: `= ? / ${d}`, answer: a - b };
+    }
+    const k = rand(2, Math.min(9, Math.floor(99 / d)));
+    if (kind === 'unit') return { text: `1/${d} of ${d * k}`, answer: k };
+    const n = rand(1, d - 1);
+    return { text: `${n}/${d} of ${d * k}`, answer: n * k };
+  },
+  dec() {
+    let x = rand(11, 99), y = rand(1, 9);
+    const plus = rand(0, 1) === 1;
+    return { text: `${fmt(x / 10)} ${plus ? '+' : '−'} ${fmt(y / 10)}`, answer: (plus ? x + y : x - y) / 10, decimal: true };
+  },
+  pct() {
+    const p = pick([10, 20, 25, 50]), base = pick([20, 40, 60, 80]);
+    return { text: `${p}% of ${base}`, answer: (base * p) / 100 };
+  },
+  eq(g) {
+    const neg = g >= 7;
+    const kind = pick(['plus', 'minus', 'times']);
+    const a = rand(kind === 'times' ? 2 : 1, 9);
+    const x = kind === 'times' ? (neg ? randNonZero(-9, 9) : rand(1, 9)) : neg ? rand(-9, 40) : rand(a, 50);
+    if (kind === 'plus') return { text: `x + ${a} = ${fmt(x + a)}`, ask: 'x = ?', answer: x };
+    if (kind === 'minus') return { text: `x − ${a} = ${fmt(x - a)}`, ask: 'x = ?', answer: x };
+    return { text: `${a}x = ${fmt(a * x)}`, ask: 'x = ?', answer: x };
+  },
+};
+
+function makeQuestion(op, grade, easy = false, simple = false) {
   if (op === 'mix') op = pick(mixPool(grade));
-  const q = OPS[op].minGrade > 0 ? EXTRA_GEN[op](grade, easy) : basicQuestion(op, grade, easy);
+  const extra = OPS[op].minGrade > 0;
+  const q = extra
+    ? (simple ? SIMPLE_EXTRA[op](grade) : EXTRA_GEN[op](grade, easy))
+    : basicQuestion(op, grade, easy, simple);
+  q.simple = simple;
   q.op = op;
   q.ask = q.ask || '= ?';
   q.decimal = !!q.decimal;
-  q.time = TIMER_BY_GRADE[grade] + (EXTRA_TIME[op] || 0);
   return q;
+}
+
+// Seconds per question. Typing answers in grades 5-8 is a fast 5 seconds;
+// multiple choice (and younger grades) keep the normal timer for their grade.
+const TYPE_TIMER_OLDER = 5;
+function questionTime(p, op) {
+  const base = p.mode !== 'choice' && p.grade >= 5 ? TYPE_TIMER_OLDER : TIMER_BY_GRADE[p.grade];
+  return base + (EXTRA_TIME[op] || 0);
+}
+
+// Multiple choice: the right answer plus 3 different, believable wrong ones,
+// in random order. Never negative before 6th grade; decimals keep their decimal places.
+function makeChoices(q, grade) {
+  const allowNeg = grade >= 6;
+  const places = q.decimal ? Math.min(2, Math.max(1, (String(q.answer).split('.')[1] || '').length)) : 0;
+  const unit = 10 ** -places;
+  const round = (n) => Number(n.toFixed(places));
+  const answer = round(q.answer);
+  const big = Math.max(2, Math.round(Math.abs(answer) * 0.1));
+  const steps = [1, 2, 3, 4, 5].map((k) => k * unit).concat(places ? [1, 0.5] : [10, big]);
+  const pool = [];
+  steps.forEach((d) => pool.push(answer + d, answer - d));
+  if (allowNeg && answer !== 0) pool.push(-answer);
+  const wrong = new Set();
+  shuffle(pool.map(round)).forEach((n) => {
+    if (wrong.size < 3 && n !== answer && (allowNeg || n >= 0)) wrong.add(n);
+  });
+  for (let k = 6; wrong.size < 3; k++) wrong.add(round(answer + k * unit)); // backup, rarely needed
+  return shuffle([answer, ...wrong]);
 }
 
 // A course: warm-up questions first for 7th/8th grade, plus a few
@@ -566,21 +655,28 @@ function makeCourse(p, count) {
   const qs = [];
   const seen = new Set();
   const warmup = WARMUP_GRADES.includes(p.grade) ? Math.round(count * WARMUP_SHARE) : 0;
+  const simple = p.mode !== 'choice';
   let tries = 0;
   while (qs.length < count) {
-    const q = makeQuestion(p.op, p.grade, qs.length < warmup);
+    const q = makeQuestion(p.op, p.grade, qs.length < warmup, simple);
     const key = q.text + q.ask;
     if (seen.has(key) && tries++ < 300) continue; // avoid repeats when possible
     seen.add(key);
     qs.push(q);
   }
+  // review questions only come back in the same kind of course they were missed in
   const reviews = p.reviewQueue
+    .filter((q) => !!q.simple === simple)
     .filter((q) => (p.op === 'mix' ? mixPool(p.grade).includes(q.op) : q.op === p.op) && !seen.has(q.text + q.ask))
     .slice(0, Math.min(REVIEW_PER_COURSE, count - warmup));
   reviews.forEach((q) => {
     // swap a review question into a random spot after the warm-up
     const spot = rand(warmup, count - 1);
-    qs[spot] = { ...q, review: true, time: TIMER_BY_GRADE[p.grade] + (EXTRA_TIME[q.op] || 0) };
+    qs[spot] = { ...q, review: true };
+  });
+  qs.forEach((q) => {
+    q.time = questionTime(p, q.op);
+    if (p.mode === 'choice') q.choices = makeChoices(q, p.grade);
   });
   return qs;
 }
@@ -955,7 +1051,7 @@ $('pv-action').onclick = () => {
 function showReady(afterSignIn = false) {
   const p = player();
   if (!opsForGrade(p.grade).includes(p.op)) p.op = 'add';
-  $('ready-details').textContent = `${GRADE_NAMES[p.grade]} · ${OPS[p.op].label} · ${courseLength(p)} questions`;
+  renderReadyDetails();
   $('screen-ready').querySelector('.ready-title').textContent = afterSignIn
     ? 'Do you wanna see what a course is like?'
     : 'Are you ready to start the course?';
@@ -963,6 +1059,20 @@ function showReady(afterSignIn = false) {
   $('ready-no').textContent = afterSignIn ? 'No, I wanna see the lobby!' : 'No, go back!';
   show('ready');
 }
+
+// "Type the answer" or "Multiple choice", picked right before the course.
+function renderReadyDetails() {
+  const p = player();
+  document.querySelectorAll('#mode-seg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === (p.mode || 'type')));
+  $('ready-details').textContent = `${GRADE_NAMES[p.grade]} · ${OPS[p.op].label} · ${courseLength(p)} questions · ${questionTime(p, 'add')} seconds each`;
+}
+$('mode-seg').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  player().mode = b.dataset.mode;
+  save();
+  renderReadyDetails();
+});
 
 $('ready-yes').onclick = startCountdown;
 $('ready-no').onclick = () => showLobby('play');
@@ -1022,15 +1132,26 @@ function renderQuestion() {
   $('score-line').innerHTML = retry
     ? 'Fix the ones you missed! These don\'t change your score.'
     : `Correct: <strong>${quiz.correct}</strong>`;
-  buildKeypad(q);
+  const choice = !!q.choices;
+  $('answer-form').classList.toggle('hidden', choice);
+  $('keypad').classList.toggle('hidden', choice);
+  $('choices').classList.toggle('hidden', !choice);
   const input = $('answer-input');
   input.value = '';
   input.className = 'answer-input';
   input.disabled = false;
+  if (choice) {
+    // second-chance questions get their choices shuffled again
+    const opts = retry ? shuffle([...q.choices]) : q.choices;
+    $('choices').innerHTML = opts.map((n, i) =>
+      `<button type="button" class="choice" data-v="${n}"><span class="ckey">${i + 1}</span>${fmt(n)}</button>`).join('');
+  } else {
+    buildKeypad(q);
+  }
   $('feedback').innerHTML = '&nbsp;';
   $('feedback').className = 'feedback';
   quiz.locked = false;
-  input.focus();
+  if (!choice) input.focus();
   quiz.qStart = performance.now();
   startTimer(q.time);
 }
@@ -1096,7 +1217,19 @@ $('answer-form').addEventListener('submit', (e) => {
   checkAnswer(input.value);
 });
 
-// value is the typed answer, or null when the timer ran out
+// Multiple choice: tap an answer, or press 1-4 on a keyboard.
+$('choices').addEventListener('click', (e) => {
+  const b = e.target.closest('.choice');
+  if (!b || !quiz || quiz.locked) return;
+  checkAnswer(b.dataset.v);
+});
+document.addEventListener('keydown', (e) => {
+  if (!quiz || quiz.locked || $('choices').classList.contains('hidden')) return;
+  const b = $('choices').children[Number(e.key) - 1];
+  if (b) b.click();
+});
+
+// value is the typed or picked answer, or null when the timer ran out
 function checkAnswer(value) {
   quiz.locked = true;
   stopTimer();
@@ -1135,6 +1268,11 @@ function checkAnswer(value) {
   input.disabled = true;
   input.classList.add(ok ? 'right' : 'wrong');
   $('flashcard').classList.add(ok ? 'right' : 'wrong');
+  [...$('choices').children].forEach((b) => {
+    b.disabled = true;
+    if (Math.abs(Number(b.dataset.v) - q.answer) < 1e-6) b.classList.add('right');
+    else if (value !== null && b.dataset.v === String(value)) b.classList.add('wrong');
+  });
   const fb = $('feedback');
   fb.className = 'feedback show ' + (ok ? 'good' : 'bad');
   const answerText = q.ask.includes('?') ? q.ask.replace('?', fmt(q.answer)) : `= ${fmt(q.answer)}`;
@@ -1229,7 +1367,7 @@ function finishQuiz() {
   // every missed question comes back as a "Review question" in a later course
   quiz.wrong.forEach((q) => {
     const key = q.text + q.ask;
-    p.reviewQueue = [{ text: q.text, ask: q.ask, answer: q.answer, op: q.op, decimal: q.decimal },
+    p.reviewQueue = [{ text: q.text, ask: q.ask, answer: q.answer, op: q.op, decimal: q.decimal, simple: q.simple },
       ...p.reviewQueue.filter((r) => r.text + r.ask !== key)].slice(0, REVIEW_KEEP);
   });
 
@@ -1586,7 +1724,7 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- bouncy clicks ----------
 // Every button springs when pressed; the class restarts the animation on each click.
-const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .path-arrow, .item, .avatar-choice, .seg button';
+const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .path-arrow, .item, .avatar-choice, .seg button, .choice';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(BOUNCY);
   if (!el || el.disabled) return;

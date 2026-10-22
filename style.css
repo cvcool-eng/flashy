@@ -757,6 +757,21 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
 .switch.on { background: var(--green); }
 .switch.on span { transform: translateX(24px); background: var(--cream); }
 
+/* ================= Course mode + multiple choice ================= */
+.mode-seg { max-width: 420px; margin: 4px auto 14px; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 26px; }
+.choice {
+  position: relative; font: inherit; font-size: 1.9rem; font-weight: 700; cursor: pointer;
+  padding: 18px 10px; border-radius: 18px;
+  background: var(--teal); color: var(--text);
+  border: 3px solid var(--green); box-shadow: 0 6px 0 var(--night);
+}
+.choice:hover:not(:disabled) { background: var(--green); }
+.choice:disabled { cursor: default; }
+.choice.right { background: var(--good); border-color: var(--good); color: var(--night); }
+.choice.wrong { background: var(--bad); border-color: var(--bad); color: var(--night); }
+.ckey { position: absolute; top: 6px; left: 10px; font-size: .75rem; font-weight: 600; opacity: .55; }
+
 /* ================= Lost streak popup ================= */
 .streak-card { border-color: #7fd3ff; }
 .lost-fire { width: 64px; height: 84px; display: block; margin: 0 auto 10px; animation: lost-sway 2.4s ease-in-out infinite; transform-origin: bottom center; }
