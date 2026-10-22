@@ -1022,6 +1022,10 @@ body.easy-font .typing-text { letter-spacing: .06em; word-spacing: .12em; }
 .doc-cols { columns: 2; column-gap: 32px; }
 @media (max-width: 520px) { .doc-cols { columns: 1; } }
 
+/* ================= Full screen button ================= */
+.brand-wrap { display: flex; align-items: center; gap: 8px; }
+.fs-btn { width: 34px; height: 34px; padding: 6px; }
+
 /* ================= Contact us popup ================= */
 .contact-card { position: relative; max-width: 460px; display: flex; flex-direction: column; gap: 12px; }
 .contact-card h2 { margin: 0; }

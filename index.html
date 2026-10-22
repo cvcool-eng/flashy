@@ -33,7 +33,10 @@
 
   <!-- Top bar: gems, avatar + name + streak fire (tap to open your profile) -->
   <header id="topbar" class="topbar hidden">
-    <div class="brand">Flashy</div>
+    <div class="brand-wrap">
+      <div class="brand">Flashy</div>
+      <button class="icon-btn fs-btn hidden" id="fs-btn" aria-label="Full screen" title="Full screen (F11)"></button>
+    </div>
     <div class="topbar-right">
       <div class="pill gems" title="Gems">
         <svg viewBox="0 0 24 24" class="gem-icon" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="#7fe3ff"/><path d="M2 9h20L12 21z" fill="#3cb8e0"/><path d="M8 3l4 6 4-6" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.2"/></svg>
@@ -287,6 +290,10 @@
           <div class="setting-row">
             <span>Lobby music</span>
             <button class="switch" id="music-switch" role="switch" aria-checked="true" aria-label="Lobby music"><span></span></button>
+          </div>
+          <div class="setting-row hidden" id="fs-row">
+            <span>Full screen<small class="setting-help">Shortcut: F11</small></span>
+            <button class="switch" id="fs-switch" role="switch" aria-checked="false" aria-label="Full screen"><span></span></button>
           </div>
           <div class="setting-row">
             <span>Easier-to-read font</span>

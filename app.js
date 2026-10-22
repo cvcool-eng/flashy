@@ -2568,6 +2568,46 @@ document.addEventListener('animationend', (e) => {
   if (e.animationName === 'bounce') e.target.classList.remove('bounce');
 });
 
+// ---------- full screen ----------
+// A button in the top bar, a switch in Settings, and F11 (which the installed app
+// window doesn't handle on its own). Hidden where the browser doesn't allow it (iPhone).
+const FS_ENTER_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const FS_EXIT_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const root = document.documentElement;
+const fsSupported = !!(root.requestFullscreen || root.webkitRequestFullscreen);
+const isFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+
+function toggleFullscreen() {
+  try {
+    if (isFullscreen()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      const req = (root.requestFullscreen || root.webkitRequestFullscreen).call(root);
+      if (req && req.catch) req.catch(() => showBanner('⚠️', "This browser didn't allow full screen."));
+    }
+  } catch (e) { /* not allowed here */ }
+}
+function renderFullscreen() {
+  const on = isFullscreen();
+  $('fs-btn').innerHTML = on ? FS_EXIT_SVG : FS_ENTER_SVG;
+  $('fs-btn').setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  $('fs-btn').title = on ? 'Exit full screen (F11)' : 'Full screen (F11)';
+  $('fs-switch').classList.toggle('on', on);
+  $('fs-switch').setAttribute('aria-checked', String(on));
+}
+if (fsSupported) {
+  $('fs-btn').classList.remove('hidden');
+  $('fs-row').classList.remove('hidden');
+  $('fs-btn').onclick = toggleFullscreen;
+  $('fs-switch').onclick = toggleFullscreen;
+  document.addEventListener('fullscreenchange', renderFullscreen);
+  document.addEventListener('webkitfullscreenchange', renderFullscreen);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
+  });
+  renderFullscreen();
+}
+
 // ---------- Contact us ----------
 // Opens a little message box; Send opens the email app with the message filled in.
 const CONTACT_EMAIL = 'asherndahl@gmail.com';
