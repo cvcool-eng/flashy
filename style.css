@@ -101,7 +101,28 @@ h3 { font-size: 1.1rem; color: var(--sage); margin-top: 1.4em; }
 .login-card h1 { font-size: 2.4rem; }
 #login-form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
 #login-form label { font-weight: 600; color: var(--sage); margin-top: 6px; }
-#login-form button { margin-top: 16px; }
+#login-form button[type="submit"] { margin-top: 16px; }
+#have-account { margin-top: 4px; }
+
+.accounts-view { display: flex; flex-direction: column; gap: 12px; animation: panel-in .3s var(--spring); }
+.account-list { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.account-item {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  font: inherit; color: var(--text); cursor: pointer; text-align: left;
+  padding: 12px 14px; border-radius: 18px;
+  background: var(--night); border: 2px solid var(--green);
+  transition: transform .22s var(--spring), background .15s, border-color .15s;
+}
+.account-item:hover { background: var(--teal); border-color: var(--sage); transform: translateY(-2px); }
+.account-item:active { transform: scale(.97); }
+.avatar {
+  flex: none; width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--sage); color: var(--night); font-size: 1.4rem; font-weight: 700;
+}
+.account-info { display: flex; flex-direction: column; min-width: 0; }
+.account-info strong { font-size: 1.2rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-info small { color: var(--muted); }
 input {
   font: inherit; font-size: 1.15rem;
   padding: 12px 14px; border-radius: 14px;

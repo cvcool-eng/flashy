@@ -242,9 +242,47 @@ function showLogin() {
   loginGrade = null;
   $('name-input').value = '';
   gradeButtons($('login-grades'), -1, (g) => { loginGrade = g; });
+  $('login-form').classList.remove('hidden');
+  $('accounts-view').classList.add('hidden');
   show('login');
   $('name-input').focus();
 }
+
+// Sign in to a saved account and go straight to the first course prompt.
+function signInAs(key) {
+  data.current = key;
+  touchStreak(data.profiles[key]);
+  save();
+  renderTopbar();
+  showReady(true);
+  maybeToast();
+}
+
+// "I have an account!" lists every account saved on this device.
+function showAccounts() {
+  const list = $('account-list');
+  const profiles = Object.entries(data.profiles);
+  list.innerHTML = profiles.length
+    ? profiles.map(([key, p]) => `
+      <button type="button" class="account-item" data-key="${key}">
+        <span class="avatar">${p.name.charAt(0).toUpperCase()}</span>
+        <span class="account-info">
+          <strong></strong>
+          <small>${GRADE_NAMES[p.grade]} · ${p.streak} day streak · ${p.gems.toLocaleString()} gems</small>
+        </span>
+      </button>`).join('')
+    : '<p class="sub">No accounts on this device yet. Make a new one!</p>';
+  // names go in as text, not HTML
+  list.querySelectorAll('.account-item').forEach((b) => {
+    b.querySelector('strong').textContent = data.profiles[b.dataset.key].name;
+    b.onclick = () => signInAs(b.dataset.key);
+  });
+  $('login-form').classList.add('hidden');
+  $('accounts-view').classList.remove('hidden');
+}
+
+$('have-account').onclick = showAccounts;
+$('new-account').onclick = showLogin;
 
 $('login-form').addEventListener('submit', (e) => {
   e.preventDefault();
