@@ -830,12 +830,8 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
   animation: spin-ring .8s linear infinite;
 }
 @keyframes spin-ring { to { transform: rotate(360deg); } }
-.splash.leaving { animation: splash-drop .75s cubic-bezier(.5, -0.4, .7, .6) forwards; pointer-events: none; }
-@keyframes splash-drop {
-  0% { transform: translateY(0); }
-  25% { transform: translateY(-28px); }
-  100% { transform: translateY(110vh); }
-}
+.splash.leaving { animation: splash-fade .45s ease forwards; pointer-events: none; }
+@keyframes splash-fade { to { opacity: 0; } }
 
 /* ================= Lost streak popup ================= */
 .streak-card { border-color: #7fd3ff; }

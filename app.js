@@ -1826,7 +1826,7 @@ document.addEventListener('animationend', (e) => {
 });
 
 // ---------- start ----------
-// Loading screen: shows for about 2 seconds, then bounces down off the screen.
+// Loading screen: shows for about 2 seconds, then fades away.
 setTimeout(() => {
   const splash = $('splash');
   splash.classList.add('leaving');
