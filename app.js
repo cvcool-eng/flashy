@@ -1539,6 +1539,7 @@ function askQuit(onYes, words = {}) {
   const w = { ...QUIT_WORDS, ...words };
   $('quit-title').textContent = w.title;
   $('quit-sub').textContent = w.sub;
+  $('quit-sub').classList.toggle('hidden', !w.sub);
   $('quit-yes').textContent = w.yes;
   $('quit-no').textContent = w.no;
   const running = !!timerFrame;
@@ -2567,6 +2568,30 @@ document.addEventListener('pointerdown', (e) => {
 document.addEventListener('animationend', (e) => {
   if (e.animationName === 'bounce') e.target.classList.remove('bounce');
 });
+
+// ---------- Esc key ----------
+// Esc closes an open popup; on the main menu it asks "Are you sure you want to leave?"
+const isOpen = (id) => !$(id).classList.contains('hidden');
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (isOpen('quit-modal')) { $('quit-no').click(); return; }
+  if (isOpen('profile-modal')) { closeProfile(); return; }
+  if (isOpen('contact-modal')) { closeContact(); return; }
+  if (isOpen('bye')) { $('bye-back').click(); return; }
+  // chest and lost-streak popups need a choice, so Esc leaves them alone
+  if (isOpen('chest-modal') || isOpen('streak-modal')) return;
+  if (!isOpen('screen-lobby')) return;
+  askQuit(leaveFlashy, { title: 'Are you sure you want to leave?', sub: '', yes: 'Yes sorry', no: 'Oops misclick!' });
+});
+function leaveFlashy() {
+  stopMusic();
+  window.close(); // works in the installed app window; a normal tab can't close itself
+  setTimeout(() => { $('bye').classList.remove('hidden'); }, 200);
+}
+$('bye-back').onclick = () => {
+  $('bye').classList.add('hidden');
+  updateMusic();
+};
 
 // ---------- full screen ----------
 // A button in the top bar, a switch in Settings, and F11 (which the installed app
