@@ -1125,7 +1125,7 @@ function renderQuestion() {
   // a tag on the card for questions they missed before
   const tag = $('review-tag');
   tag.classList.toggle('hidden', !(retry || q.review));
-  tag.textContent = retry ? 'Second chance' : 'Review question';
+  tag.textContent = 'Review question';
   $('screen-quiz').querySelector('.quiz-wrap').classList.toggle('retry', retry);
   $('q-count').textContent = retry ? `Retry ${quiz.i + 1} / ${quiz.list.length}` : `${quiz.i + 1} / ${quiz.list.length}`;
   $('progress-fill').style.width = `${(quiz.i / quiz.list.length) * 100}%`;
