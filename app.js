@@ -1557,11 +1557,13 @@ $('start-course').onclick = () => showReady();
 // 5 kid-friendly sentences. Untyped letters are faded, the current word has an
 // outline, correct letters turn into normal text and wrong ones get a red tint.
 const TYPING_SENTENCES = 5;
+// gems: up to `gems` for the level (scaled by accuracy), plus a bonus for zero mistakes
 const TYPING_LEVELS = {
-  easy:   { label: 'Easy',   sym: 'abc',  desc: 'Short and simple' },
-  medium: { label: 'Medium', sym: 'Abc.', desc: 'Capitals and periods' },
-  hard:   { label: 'Hard',   sym: 'Abc!', desc: 'Longer, with punctuation' },
+  easy:   { label: 'Easy',   sym: 'abc',  desc: 'Short and simple',         gems: 20 },
+  medium: { label: 'Medium', sym: 'Abc.', desc: 'Capitals and periods',     gems: 30 },
+  hard:   { label: 'Hard',   sym: 'Abc!', desc: 'Longer, with punctuation', gems: 40 },
 };
+const TYPING_PERFECT_GEMS = 10;
 const SENTENCES = {
   easy: [
     'i like to read books', 'the cat is on the mat', 'we can play at the park',
@@ -1713,9 +1715,18 @@ function finishTyping() {
   $('type-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
   $('type-title').textContent = acc === 100 ? 'PERFECT!' : acc >= 90 ? 'Great typing!' : acc >= 75 ? 'Nice work!' : 'Keep practicing!';
   $('type-acc').textContent = `${acc}%`;
+  const p = player();
+  const perfect = !typing.mistakes;
+  const gems = Math.round((TYPING_LEVELS[typing.level].gems * acc) / 100) + (perfect ? TYPING_PERFECT_GEMS : 0);
+  p.gems += gems;
+  p.gemsEarned += gems;
+  save();
+  renderTopbar();
+  $('type-gems').textContent = `You earned ${gems} gems${perfect ? ` (includes +${TYPING_PERFECT_GEMS} perfect bonus!)` : ''}`;
   sfx.chest();
   typing = null;
   show('typedone');
+  announceBadges(p);
 }
 
 $('typing-quit').onclick = () => {
