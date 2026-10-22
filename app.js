@@ -51,6 +51,16 @@ const FIRE_TIERS = [
 
 // Avatars: square tiles in Flashy's greens with the face filling the tile.
 // The first six are free, the rest are unlocked with gems.
+// A plain (uncarved) pumpkin, drawn by hand since there's no emoji for one.
+const PUMPKIN_SVG = `<svg viewBox="0 0 100 100" class="face-svg" aria-hidden="true">
+  <path d="M50 26c-4-10-1-16 6-19" stroke="#3f7d2c" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <path d="M56 18c10-8 22-6 26 2-9 5-19 5-26-2z" fill="#5fae3e"/>
+  <ellipse cx="30" cy="60" rx="22" ry="30" fill="#e8741c"/>
+  <ellipse cx="70" cy="60" rx="22" ry="30" fill="#e8741c"/>
+  <ellipse cx="50" cy="60" rx="22" ry="32" fill="#f7902a"/>
+  <path d="M36 34c-6 14-6 38 0 52M64 34c6 14 6 38 0 52" stroke="#c95d10" stroke-width="2.5" fill="none" opacity=".7"/>
+  <path d="M44 36c-3 6-4 12-4 16" stroke="#ffc07a" stroke-width="4" fill="none" stroke-linecap="round" opacity=".7"/>
+</svg>`;
 const SAGE = ['#a3cfaa', '#6fa67a'];   // light green
 const GREEN = ['#3f9a74', '#226b4f'];  // mid green
 const TEAL = ['#1d6b64', '#0e3f3b'];   // deep teal
@@ -77,17 +87,11 @@ const AVATARS = [
   { id: 'snowman', name: 'Snowman', face: '⛄', bg: TEAL,  price: 300 },
   { id: 'whale',   name: 'Whale',   face: '🐳', bg: SAGE,  price: 300 },
   { id: 'robot',   name: 'Robot',   face: '🤖', bg: TEAL,  price: 300 },
-  { id: 'pumpkin', name: 'Pumpkin', face: '🎃', bg: TEAL,  price: 350 },
-  { id: 'ghost',   name: 'Ghost',   face: '👻', bg: GREEN, price: 350 },
-  { id: 'unicorn', name: 'Unicorn', face: '🦄', bg: GREEN, price: 350 },
+  { id: 'pumpkin', name: 'Pumpkin', face: PUMPKIN_SVG, bg: TEAL, price: 350 },
   { id: 'alien',   name: 'Alien',   face: '👽', bg: TEAL,  price: 350 },
   { id: 'shark',   name: 'Shark',   face: '🦈', bg: SAGE,  price: 400 },
-  { id: 'cowboy',  name: 'Cowboy',  face: '🤠', bg: GREEN, price: 400 },
   { id: 'dragon',  name: 'Dragon',  face: '🐲', bg: SAGE,  price: 450 },
-  { id: 'cool',    name: 'Cool Cat', face: '😎', bg: GREEN, price: 500 },
   { id: 'stars',   name: 'Star Eyes', face: '🤩', bg: TEAL, price: 500 },
-  { id: 'ninja',   name: 'Ninja',   face: '🥷', bg: SAGE,  price: 600 },
-  { id: 'wizard',  name: 'Wizard',  face: '🧙', bg: GREEN, price: 700 },
   { id: 'trex',    name: 'T-Rex',   face: '🦖', bg: TEAL,  price: 800 },
   { id: 'skydragon', name: 'Sky Dragon', face: '🐉', bg: GREEN, price: 1000 },
 ];
