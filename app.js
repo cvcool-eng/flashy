@@ -486,7 +486,6 @@ function renderLobby() {
     };
     grid.appendChild(b);
   });
-  gradeButtons($('lobby-grades'), p.grade, (g) => { p.grade = g; save(); });
   renderTopbar();
 }
 $('start-course').onclick = showReady;
