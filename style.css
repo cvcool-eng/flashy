@@ -527,6 +527,30 @@ input:focus { border-color: var(--sage); }
 .frame-galaxy { animation: galaxy-glow 3s ease-in-out infinite; }
 .frame-lightning::before { background: conic-gradient(from var(--a), #fff9c4, #ffe600, #fff, #ffb300, #fff176, #ffe600, #fff9c4); animation: flow 1s linear infinite, zap 1.8s steps(1) infinite; }
 .frame-lightning { animation: zap-glow 1.8s steps(1) infinite; }
+.frame-candy::before { background: repeating-conic-gradient(from var(--a), #ff7ab6 0 22.5deg, #fff 22.5deg 45deg); animation: flow 4s linear infinite; }
+.frame-candy { box-shadow: 0 0 10px rgba(255, 122, 182, .55); }
+.frame-ocean::before { background: conic-gradient(from var(--a), #0ea5e9, #22d3ee, #1e40af, #38bdf8, #a5f3fc, #0ea5e9); animation: flow 4s linear infinite; }
+.frame-ocean { animation: ocean-glow 2.6s ease-in-out infinite; }
+.frame-sunset::before { background: conic-gradient(from var(--a), #ff7e5f, #feb47b, #ff5e99, #7b2ff7, #ff7e5f); animation: flow 3.5s linear infinite; }
+.frame-sunset { box-shadow: 0 0 12px rgba(255, 126, 95, .6); }
+.frame-toxic::before { background: conic-gradient(from var(--a), #a3ff12, #39ff14, #0b3d0b, #c6ff4d, #39ff14, #a3ff12); animation: flow 2s linear infinite; }
+.frame-toxic { animation: toxic-glow 1.2s ease-in-out infinite; }
+.frame-lava::before { background: conic-gradient(from var(--a), #2b0000, #ff3d00, #ffb300, #7a0000, #ff5a00, #2b0000); animation: flow 5s linear infinite; }
+.frame-lava { animation: fire-glow 1.2s ease-in-out infinite alternate; }
+.frame-shadow::before { background: conic-gradient(from var(--a), #000, #3b0764, #111827, #7c3aed, #000); animation: flow 3s linear infinite; }
+.frame-shadow { animation: shadow-glow 2.4s ease-in-out infinite; }
+.frame-aurora::before { background: conic-gradient(from var(--a), #22d3ee, #a7f3d0, #818cf8, #f0abfc, #34d399, #22d3ee); animation: flow 4s linear infinite; }
+.frame-aurora { animation: aurora-glow 3s ease-in-out infinite; }
+.frame-diamond::before { background: conic-gradient(from var(--a), #fff, #bae6fd, #e0f2fe, #fff, #93c5fd, #f0f9ff, #fff); animation: flow 2.5s linear infinite, zap 2.4s steps(1) infinite; }
+.frame-diamond { animation: diamond-glow 2.4s ease-in-out infinite; }
+.frame-legendary::before { background: conic-gradient(from var(--a), #ffd23f, #ff4dd2, #4dc3ff, #5dff7a, #ffd23f); animation: flow 1.2s linear infinite; }
+.frame-legendary { animation: legendary-glow 1s ease-in-out infinite alternate; }
+@keyframes ocean-glow { 0%, 100% { box-shadow: 0 0 6px rgba(34, 211, 238, .4); } 50% { box-shadow: 0 0 16px rgba(34, 211, 238, .85); } }
+@keyframes toxic-glow { 0%, 100% { box-shadow: 0 0 8px rgba(57, 255, 20, .45); } 50% { box-shadow: 0 0 20px rgba(163, 255, 18, .95); } }
+@keyframes shadow-glow { 0%, 100% { box-shadow: 0 0 10px rgba(124, 58, 237, .5); } 50% { box-shadow: 0 0 18px rgba(0, 0, 0, .9), 0 0 8px rgba(124, 58, 237, .8); } }
+@keyframes aurora-glow { 0%, 100% { box-shadow: 0 0 12px rgba(34, 211, 238, .6); } 50% { box-shadow: 0 0 16px rgba(240, 171, 252, .8); } }
+@keyframes diamond-glow { 0%, 100% { box-shadow: 0 0 8px rgba(255, 255, 255, .5); } 50% { box-shadow: 0 0 20px rgba(186, 230, 253, .95); } }
+@keyframes legendary-glow { from { box-shadow: 0 0 10px rgba(255, 210, 63, .7); } to { box-shadow: 0 0 24px rgba(255, 77, 210, .9), 0 0 8px #ffd23f; } }
 @keyframes ice-glow { 0%, 100% { box-shadow: 0 0 6px rgba(127, 211, 255, .4); } 50% { box-shadow: 0 0 16px rgba(127, 211, 255, .9); } }
 @keyframes fire-glow { from { box-shadow: 0 0 8px rgba(255, 94, 26, .6); } to { box-shadow: 0 -3px 18px rgba(255, 154, 26, .95); } }
 @keyframes neon-glow { 0%, 100% { box-shadow: 0 0 14px #ff2bd6; } 50% { box-shadow: 0 0 18px #00e5ff; } }

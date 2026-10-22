@@ -68,11 +68,28 @@ const AVATARS = [
   { id: 'wolf',    name: 'Wolf',    face: '🐺', bg: SAGE,  price: 200 },
   { id: 'owl',     name: 'Owl',     face: '🦉', bg: GREEN, price: 250 },
   { id: 'pig',     name: 'Pig',     face: '🐷', bg: TEAL,  price: 250 },
+  { id: 'bunny',   name: 'Bunny',   face: '🐰', bg: GREEN, price: 150 },
+  { id: 'hamster', name: 'Hamster', face: '🐹', bg: TEAL,  price: 150 },
+  { id: 'penguin', name: 'Penguin', face: '🐧', bg: SAGE,  price: 200 },
+  { id: 'turtle',  name: 'Turtle',  face: '🐢', bg: TEAL,  price: 200 },
+  { id: 'lizard',  name: 'Lizard',  face: '🦎', bg: TEAL,  price: 250 },
+  { id: 'octopus', name: 'Octopus', face: '🐙', bg: GREEN, price: 250 },
+  { id: 'snowman', name: 'Snowman', face: '⛄', bg: TEAL,  price: 300 },
+  { id: 'whale',   name: 'Whale',   face: '🐳', bg: SAGE,  price: 300 },
   { id: 'robot',   name: 'Robot',   face: '🤖', bg: TEAL,  price: 300 },
+  { id: 'pumpkin', name: 'Pumpkin', face: '🎃', bg: TEAL,  price: 350 },
+  { id: 'ghost',   name: 'Ghost',   face: '👻', bg: GREEN, price: 350 },
   { id: 'unicorn', name: 'Unicorn', face: '🦄', bg: GREEN, price: 350 },
   { id: 'alien',   name: 'Alien',   face: '👽', bg: TEAL,  price: 350 },
+  { id: 'shark',   name: 'Shark',   face: '🦈', bg: SAGE,  price: 400 },
+  { id: 'cowboy',  name: 'Cowboy',  face: '🤠', bg: GREEN, price: 400 },
   { id: 'dragon',  name: 'Dragon',  face: '🐲', bg: SAGE,  price: 450 },
   { id: 'cool',    name: 'Cool Cat', face: '😎', bg: GREEN, price: 500 },
+  { id: 'stars',   name: 'Star Eyes', face: '🤩', bg: TEAL, price: 500 },
+  { id: 'ninja',   name: 'Ninja',   face: '🥷', bg: SAGE,  price: 600 },
+  { id: 'wizard',  name: 'Wizard',  face: '🧙', bg: GREEN, price: 700 },
+  { id: 'trex',    name: 'T-Rex',   face: '🦖', bg: TEAL,  price: 800 },
+  { id: 'skydragon', name: 'Sky Dragon', face: '🐉', bg: GREEN, price: 1000 },
 ];
 
 // Frames: the cooler they look, the more they cost. Looks live in style.css (.frame-<id>).
@@ -80,12 +97,21 @@ const FRAMES = [
   { id: 'none',      name: 'No frame',  price: 0 },
   { id: 'classic',   name: 'Classic',   price: 0 },
   { id: 'gold',      name: 'Gold',      price: 150 },
+  { id: 'candy',     name: 'Candy',     price: 250 },
   { id: 'ice',       name: 'Ice',       price: 300 },
+  { id: 'ocean',     name: 'Ocean',     price: 350 },
   { id: 'fire',      name: 'Fire',      price: 400 },
+  { id: 'sunset',    name: 'Sunset',    price: 450 },
+  { id: 'toxic',     name: 'Toxic',     price: 550 },
   { id: 'neon',      name: 'Neon',      price: 600 },
+  { id: 'lava',      name: 'Lava',      price: 650 },
+  { id: 'shadow',    name: 'Shadow',    price: 750 },
   { id: 'rainbow',   name: 'Rainbow',   price: 800 },
+  { id: 'aurora',    name: 'Aurora',    price: 900 },
   { id: 'galaxy',    name: 'Galaxy',    price: 1000 },
+  { id: 'diamond',   name: 'Diamond',   price: 1200 },
   { id: 'lightning', name: 'Lightning', price: 1500 },
+  { id: 'legendary', name: 'Legendary', price: 2000 },
 ];
 
 const BADGES = [
@@ -675,7 +701,7 @@ function renderProfile() {
   document.querySelectorAll('#profile-seg button').forEach((b) => b.classList.toggle('active', b.dataset.kind === locker.kind));
 
   const isAvatar = locker.kind === 'avatar';
-  const items = isAvatar ? AVATARS : FRAMES;
+  const items = [...(isAvatar ? AVATARS : FRAMES)].sort((a, b) => a.price - b.price);
   const owned = isAvatar ? p.ownedAvatars : p.ownedFrames;
   const using = isAvatar ? p.avatar : p.frame;
   $('item-grid').innerHTML = items.map((it) => {
