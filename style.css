@@ -772,6 +772,38 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
 .choice.wrong { background: var(--bad); border-color: var(--bad); color: var(--night); }
 .ckey { position: absolute; top: 6px; left: 10px; font-size: .75rem; font-weight: 600; opacity: .55; }
 
+/* ================= Account ⋯ menu + editing ================= */
+.account-row { position: relative; display: flex; align-items: center; gap: 8px; }
+.account-row .account-item { flex: 1; min-width: 0; }
+.dots {
+  flex: none; width: 44px; height: 44px; border-radius: 14px; cursor: pointer;
+  font: inherit; font-size: 1.6rem; font-weight: 700; line-height: 1;
+  background: var(--night); color: var(--sage); border: 2px solid var(--green);
+}
+.dots:hover { background: var(--teal); }
+.acct-menu {
+  position: absolute; z-index: 10; right: 0; top: calc(100% - 6px);
+  display: flex; flex-direction: column; min-width: 140px; overflow: hidden;
+  background: var(--teal); border: 2px solid var(--sage); border-radius: 14px;
+  box-shadow: var(--shadow); animation: pop-in .2s var(--spring);
+}
+.acct-menu button {
+  font: inherit; font-weight: 600; text-align: left; cursor: pointer;
+  padding: 10px 16px; background: none; border: none; color: var(--text);
+}
+.acct-menu button:hover { background: var(--green); }
+.acct-menu button + button { border-top: 1px solid var(--green); }
+.acct-menu .danger { color: #ff9a9a; }
+.editing-label {
+  position: fixed; z-index: 20; top: 16px; left: 16px;
+  display: flex; align-items: center; gap: 8px; max-width: calc(100% - 32px);
+  background: var(--night); border: 2px solid var(--green); border-radius: 999px;
+  padding: 5px 14px 5px 12px; font-weight: 600; color: var(--muted);
+}
+.editing-avatar { display: inline-flex; }
+.editing-name { color: var(--sage); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 520px) { .login-card { margin-top: 60px; } }
+
 /* ================= Lost streak popup ================= */
 .streak-card { border-color: #7fd3ff; }
 .lost-fire { width: 64px; height: 84px; display: block; margin: 0 auto 10px; animation: lost-sway 2.4s ease-in-out infinite; transform-origin: bottom center; }

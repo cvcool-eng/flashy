@@ -44,6 +44,9 @@
 
     <!-- LOGIN -->
     <section id="screen-login" class="screen">
+      <div class="editing-label hidden" id="editing-label">
+        Currently editing <span class="editing-avatar" id="editing-avatar"></span><span class="editing-name" id="editing-name"></span>
+      </div>
       <div class="card login-card">
         <div class="logo-big">÷ × + −</div>
         <h1>Flashy</h1>
@@ -56,7 +59,7 @@
           <label>Pick your avatar</label>
           <div class="avatar-pick" id="login-avatars"></div>
           <p class="hint">You can unlock more avatars and frames with gems later!</p>
-          <button type="submit" class="btn primary big">Let's go!</button>
+          <button type="submit" class="btn primary big" id="login-submit">Let's go!</button>
           <button type="button" class="btn ghost big" id="have-account">I have an account!</button>
         </form>
         <div id="accounts-view" class="accounts-view hidden">

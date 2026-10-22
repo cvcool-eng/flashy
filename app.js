@@ -866,21 +866,52 @@ function announceBadges(p) {
 // ---------- login ----------
 let loginGrade = null;
 let loginAvatar = FREE_AVATARS[0];
+let editingKey = null; // set while editing an existing account on the sign-in page
 
 function showLogin() {
+  editingKey = null;
   loginGrade = null;
   loginAvatar = FREE_AVATARS[0];
   $('name-input').value = '';
   gradeButtons($('login-grades'), -1, (g) => { loginGrade = g; });
   renderLoginAvatars();
+  setEditingLook(null);
   $('login-form').classList.remove('hidden');
   $('accounts-view').classList.add('hidden');
   show('login');
   $('name-input').focus();
 }
 
+// Edit an account: the normal sign-in page, filled in, with "Currently editing (Name)".
+function showEditProfile(key) {
+  const p = data.profiles[key];
+  editingKey = key;
+  loginGrade = p.grade;
+  loginAvatar = p.avatar;
+  $('name-input').value = p.name;
+  gradeButtons($('login-grades'), p.grade, (g) => { loginGrade = g; });
+  renderLoginAvatars();
+  setEditingLook(p.name);
+  $('login-form').classList.remove('hidden');
+  $('accounts-view').classList.add('hidden');
+  show('login');
+}
+
+function setEditingLook(name) {
+  $('editing-label').classList.toggle('hidden', !name);
+  if (name) {
+    const p = data.profiles[editingKey];
+    $('editing-avatar').innerHTML = avatarHTML(p.avatar, p.frame, 34);
+    $('editing-name').textContent = name;
+  }
+  $('login-submit').textContent = name ? 'Save changes' : "Let's go!";
+  $('have-account').textContent = name ? 'Cancel' : 'I have an account!';
+}
+
 function renderLoginAvatars() {
-  $('login-avatars').innerHTML = FREE_AVATARS.map((id) => `
+  // while editing, the account's current avatar is offered too (even if it was unlocked with gems)
+  const ids = FREE_AVATARS.includes(loginAvatar) ? FREE_AVATARS : [...FREE_AVATARS, loginAvatar];
+  $('login-avatars').innerHTML = ids.map((id) => `
     <button type="button" class="avatar-choice${id === loginAvatar ? ' selected' : ''}" data-id="${id}" aria-label="${avatarById(id).name}">
       ${avatarHTML(id, 'none', 52)}
     </button>`).join('');
@@ -917,13 +948,20 @@ function showAccounts() {
   const profiles = Object.entries(data.profiles);
   list.innerHTML = profiles.length
     ? profiles.map(([key, p]) => `
-      <button type="button" class="account-item" data-key="${key}">
-        ${avatarHTML(p.avatar, p.frame, 50)}
-        <span class="account-info">
-          <strong></strong>
-          <small>${GRADE_NAMES[p.grade]} · ${p.streak} day streak · ${p.gems.toLocaleString()} gems</small>
-        </span>
-      </button>`).join('')
+      <div class="account-row" data-key="${key}">
+        <button type="button" class="account-item" data-key="${key}">
+          ${avatarHTML(p.avatar, p.frame, 50)}
+          <span class="account-info">
+            <strong></strong>
+            <small>${GRADE_NAMES[p.grade]} · ${p.streak} day streak · ${p.gems.toLocaleString()} gems</small>
+          </span>
+        </button>
+        <button type="button" class="dots" aria-label="More options">⋯</button>
+        <div class="acct-menu hidden">
+          <button type="button" data-act="edit">Edit</button>
+          <button type="button" data-act="delete" class="danger">Delete</button>
+        </div>
+      </div>`).join('')
     : '<p class="sub">No accounts on this device yet. Make a new one!</p>';
   // names go in as text, not HTML
   list.querySelectorAll('.account-item').forEach((b) => {
@@ -934,7 +972,37 @@ function showAccounts() {
   $('accounts-view').classList.remove('hidden');
 }
 
-$('have-account').onclick = showAccounts;
+// The ⋯ button on each account opens Edit / Delete.
+const closeAccountMenus = () => document.querySelectorAll('.acct-menu').forEach((m) => m.classList.add('hidden'));
+$('account-list').addEventListener('click', (e) => {
+  const row = e.target.closest('.account-row');
+  if (!row) return;
+  const key = row.dataset.key;
+  if (e.target.closest('.dots')) {
+    const menu = row.querySelector('.acct-menu');
+    const wasOpen = !menu.classList.contains('hidden');
+    closeAccountMenus();
+    menu.classList.toggle('hidden', wasOpen);
+    if (!wasOpen) sfx.open();
+    return;
+  }
+  const act = e.target.closest('[data-act]');
+  if (!act) return;
+  closeAccountMenus();
+  if (act.dataset.act === 'edit') showEditProfile(key);
+  if (act.dataset.act === 'delete') {
+    const name = data.profiles[key].name;
+    if (!confirm(`Delete ${name}? This erases all of ${name}'s progress, gems and avatars, and can't be undone.`)) return;
+    delete data.profiles[key];
+    if (data.current === key) data.current = null;
+    save();
+    sfx.close();
+    showAccounts();
+  }
+});
+document.addEventListener('click', (e) => { if (!e.target.closest('.account-row')) closeAccountMenus(); });
+
+$('have-account').onclick = showAccounts; // says "Cancel" while editing
 $('new-account').onclick = showLogin;
 
 $('login-form').addEventListener('submit', (e) => {
@@ -943,6 +1011,26 @@ $('login-form').addEventListener('submit', (e) => {
   if (!name) return;
   if (loginGrade === null) { alert('Please pick your grade!'); return; }
   const key = name.toLowerCase();
+  if (editingKey) {
+    // save changes to an existing account (renaming moves it to the new name)
+    const taken = Object.entries(data.profiles).find(([k, other]) => k !== editingKey && (k === key || other.name.toLowerCase() === key));
+    if (taken) { alert(`There's already an account called ${taken[1].name}.`); return; }
+    const p = data.profiles[editingKey];
+    p.name = name;
+    p.grade = loginGrade;
+    p.avatar = loginAvatar;
+    if (key !== editingKey) {
+      data.profiles[key] = p;
+      delete data.profiles[editingKey];
+      if (data.current === editingKey) data.current = key;
+    }
+    editingKey = null;
+    save();
+    sfx.buy();
+    setEditingLook(null);
+    showAccounts();
+    return;
+  }
   if (!data.profiles[key]) data.profiles[key] = newProfile(name, loginGrade, loginAvatar);
   data.profiles[key].grade = loginGrade;
   signInAs(key);
