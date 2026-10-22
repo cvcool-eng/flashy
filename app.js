@@ -220,18 +220,18 @@ function upgradeProfile(p) {
 }
 
 // Count a visit for today and update the day streak.
-// Streak freezes cover missed days so the streak keeps going.
-let freezeNotice = 0;
+// If days were missed, the streak is put on hold (pendingBreak) until the
+// player chooses to use streak freezes or restart (see showStreakBreak).
 function touchStreak(p) {
   const today = dayKey();
   if (p.lastVisit === today) return;
   const gap = p.lastVisit ? daysBetween(p.lastVisit, today) : null;
-  if (gap === 1) {
+  if (p.pendingBreak) {
+    p.pendingBreak.missed += Math.max(0, gap - 1); // still undecided from before
+  } else if (gap === 1) {
     p.streak += 1;
-  } else if (gap > 1 && gap - 1 <= p.freezes) {
-    p.freezes -= gap - 1;
-    freezeNotice = gap - 1;
-    p.streak += 1;
+  } else if (gap > 1 && p.streak > 0) {
+    p.pendingBreak = { missed: gap - 1, streak: p.streak };
   } else {
     p.streak = 1;
     p.claimedDays = [];
@@ -241,7 +241,8 @@ function touchStreak(p) {
   save();
 }
 
-const canClaim = (p) => p.lastClaim !== dayKey();
+// While the lost-streak choice is waiting, today's chest can't be claimed yet.
+const canClaim = (p) => p.lastClaim !== dayKey() && !p.pendingBreak;
 const isMegaDay = (day) => day % MEGA_EVERY === 0;
 const fireTier = (streak) => [...FIRE_TIERS].reverse().find((t) => streak >= t.min);
 
@@ -698,11 +699,53 @@ function maybeWelcome() {
   showBanner('👋', `Welcome back, ${p.name}!`, { wave: true });
 }
 
-function announceFreeze() {
-  if (!freezeNotice) return;
-  showBanner('❄️', `Your streak freeze saved your ${player().streak} day streak!`);
-  freezeNotice = 0;
+// ---------- lost streak: use streak freezes or restart ----------
+function showStreakBreak() {
+  const p = player();
+  if (!p || !p.pendingBreak) return;
+  const { missed, streak } = p.pendingBreak;
+  const days = missed === 1 ? 'a day' : `${missed} days`;
+  $('sb-text').textContent = `You missed ${days}, so your ${streak} day streak was lost.`;
+  const freeze = $('sb-freeze');
+  const enough = p.freezes >= missed;
+  freeze.disabled = !enough;
+  freeze.textContent = enough
+    ? `Use ${missed === 1 ? 'a streak freeze' : `${missed} streak freezes`} (you have ${p.freezes})`
+    : `Not enough streak freezes (you have ${p.freezes}, need ${missed})`;
+  hideToast();
+  $('streak-modal').classList.remove('hidden');
+  sfx.wrong();
 }
+
+function resolveStreakBreak(useFreeze) {
+  const p = player();
+  const b = p && p.pendingBreak;
+  if (!b) return;
+  if (useFreeze) {
+    if (p.freezes < b.missed) return;
+    p.freezes -= b.missed;
+    p.streak = b.streak + 1;
+    sfx.buy();
+  } else {
+    p.streak = 1;
+    p.claimedDays = [];
+    sfx.close();
+  }
+  p.pendingBreak = null;
+  p.bestStreak = Math.max(p.bestStreak, p.streak);
+  save();
+  $('streak-modal').classList.add('hidden');
+  renderTopbar();
+  if (!$('screen-lobby').classList.contains('hidden')) {
+    renderLobby();
+    if (!$('tab-rewards').classList.contains('hidden')) renderRewards();
+  }
+  if (useFreeze) showBanner('❄️', `Streak saved! You're on a ${p.streak} day streak.`);
+  if (!quiz) maybeToast();
+  announceBadges(p);
+}
+$('sb-freeze').onclick = () => resolveStreakBreak(true);
+$('sb-restart').onclick = () => resolveStreakBreak(false);
 
 // ---------- badges ----------
 function checkBadges(p) {
@@ -768,7 +811,7 @@ function signInAs(key) {
   else showLobby('play');
   maybeToast();
   maybeWelcome();
-  announceFreeze();
+  showStreakBreak();
   announceBadges(p);
 }
 
@@ -1536,7 +1579,7 @@ document.addEventListener('visibilitychange', () => {
     renderTopbar();
     if (!$('screen-lobby').classList.contains('hidden')) renderLobby();
     if (!quiz) maybeToast();
-    announceFreeze();
+    showStreakBreak();
   }
   if (!quiz) maybeWelcome();
 });
@@ -1564,6 +1607,6 @@ document.addEventListener('animationend', (e) => {
   showLobby('play');
   maybeToast();
   maybeWelcome();
-  announceFreeze();
+  showStreakBreak();
   announceBadges(p);
 })();

@@ -757,6 +757,15 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
 .switch.on { background: var(--green); }
 .switch.on span { transform: translateX(24px); background: var(--cream); }
 
+/* ================= Lost streak popup ================= */
+.streak-card { border-color: #7fd3ff; }
+.lost-fire { width: 64px; height: 84px; display: block; margin: 0 auto 10px; animation: lost-sway 2.4s ease-in-out infinite; transform-origin: bottom center; }
+@keyframes lost-sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg) scale(.96); } }
+.streak-choices { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.streak-choices .btn { width: 100%; }
+#sb-freeze { background: #7fd3ff; box-shadow: 0 5px 0 #3b8fb8; }
+#sb-freeze:disabled { opacity: .5; cursor: default; transform: none; }
+
 /* ================= Streak freeze ================= */
 .freeze-card {
   display: flex; align-items: center; gap: 14px; margin-top: 18px;
