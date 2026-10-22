@@ -15,7 +15,7 @@ const MEGA_EVERY = 25;
 const MEGA_GEMS = 400;
 const COMBO_EVERY = 5;   // every 5 in a row...
 const COMBO_GEMS = 5;    // ...gives 5 bonus gems
-const BADGE_GEMS = 25;
+const BADGE_GEMS = 20; // claimed by tapping the badge in the Progress tab
 const FREEZE_PRICE = 150;
 const FREEZE_MAX = 2;
 const REVIEW_PER_COURSE = 3;  // missed questions brought back in the next course
@@ -223,6 +223,9 @@ function upgradeProfile(p) {
     bestCombo: 0, perfects: 0, purchases: 0, speedy: false,
     gemsEarned: p.gems || 0, reviewQueue: [], mode: 'type', typingLevel: 'easy',
     nameColor: 'none', ownedNameColors: [...FREE_FRAMES],
+    // badges earned before claiming existed were already paid out, so they count as claimed
+    badgesClaimed: [...(p.badges || [])],
+    typingHistory: [], bestWpm: 0, lessonUnlocked: 0, lessonBest: {}, placementDone: false, easyFont: false,
   };
   Object.entries(defaults).forEach(([k, v]) => { if (p[k] === undefined) p[k] = v; });
   // everyone always owns the free ones, and unknown picks fall back to a free one
@@ -731,7 +734,7 @@ function avatarHTML(avatarId, frameId, size) {
 }
 
 // ---------- screens ----------
-const SCREENS = ['login', 'ready', 'countdown', 'quiz', 'results', 'lobby', 'typing', 'typedone'];
+const SCREENS = ['login', 'ready', 'countdown', 'quiz', 'results', 'lobby', 'typing', 'typedone', 'lessons'];
 function show(name) {
   SCREENS.forEach((s) => $(`screen-${s}`).classList.toggle('hidden', s !== name));
   $('topbar').classList.toggle('hidden', name === 'login');
@@ -755,6 +758,8 @@ function renderTopbar() {
   fire.style.setProperty('--fire-glow', t.glow);
   $('streak-wrap').title = `${p.streak} day streak (${t.name} fire)`;
   $('reward-badge').classList.toggle('hidden', !canClaim(p));
+  $('progress-badge').classList.toggle('hidden', !unclaimedBadges(p).length);
+  applyFont();
 }
 
 function gradeButtons(container, selected, onPick) {
@@ -860,22 +865,31 @@ $('sb-freeze').onclick = () => resolveStreakBreak(true);
 $('sb-restart').onclick = () => resolveStreakBreak(false);
 
 // ---------- badges ----------
+// Earned badges wait in the Progress tab until they're claimed for gems.
 function checkBadges(p) {
   const earned = BADGES.filter((b) => !p.badges.includes(b.id) && b.test(p));
-  earned.forEach((b) => {
-    p.badges.push(b.id);
-    p.gems += BADGE_GEMS;
-    p.gemsEarned += BADGE_GEMS;
-  });
+  earned.forEach((b) => p.badges.push(b.id));
   if (earned.length) save();
   return earned;
+}
+const unclaimedBadges = (p) => p.badges.filter((id) => !p.badgesClaimed.includes(id));
+function claimBadge(id) {
+  const p = player();
+  if (!p.badges.includes(id) || p.badgesClaimed.includes(id)) return;
+  p.badgesClaimed.push(id);
+  p.gems += BADGE_GEMS;
+  p.gemsEarned += BADGE_GEMS;
+  save();
+  sfx.buy();
+  renderTopbar();
+  renderStats();
 }
 // Badges earned outside of a course (streaks, unlocking things) pop up as banners.
 function announceBadges(p) {
   const earned = checkBadges(p);
   if (!earned.length) return;
   sfx.badge();
-  earned.forEach((b) => showBanner(b.icon, `Badge unlocked: ${b.name}! +${BADGE_GEMS} gems`));
+  earned.forEach((b) => showBanner(b.icon, `Badge unlocked: ${b.name}! Claim ${BADGE_GEMS} gems in Progress`));
   renderTopbar();
 }
 
@@ -889,9 +903,13 @@ function showLogin() {
   loginGrade = null;
   loginAvatar = FREE_AVATARS[0];
   $('name-input').value = '';
-  gradeButtons($('login-grades'), -1, (g) => { loginGrade = g; });
+  $('name-taken').classList.add('hidden');
+  $('name-input').classList.remove('taken');
+  gradeButtons($('login-grades'), -1, (g) => { loginGrade = g; $('grade-missing').classList.add('hidden'); });
+  $('grade-missing').classList.add('hidden');
   renderLoginAvatars();
   setEditingLook(null);
+  applyFont();
   $('login-form').classList.remove('hidden');
   $('accounts-view').classList.add('hidden');
   show('login');
@@ -1009,12 +1027,18 @@ $('account-list').addEventListener('click', (e) => {
   if (act.dataset.act === 'edit') showEditProfile(key);
   if (act.dataset.act === 'delete') {
     const name = data.profiles[key].name;
-    if (!confirm(`Delete ${name}? This erases all of ${name}'s progress, gems and avatars, and can't be undone.`)) return;
-    delete data.profiles[key];
-    if (data.current === key) data.current = null;
-    save();
-    sfx.close();
-    showAccounts();
+    askQuit(() => {
+      delete data.profiles[key];
+      if (data.current === key) data.current = null;
+      save();
+      sfx.close();
+      showAccounts();
+    }, {
+      title: `Delete ${name}?`,
+      sub: `This erases all of ${name}'s progress, gems and avatars. It can't be undone.`,
+      yes: `Yes, delete ${name}`,
+      no: 'No, keep it!',
+    });
   }
 });
 document.addEventListener('click', (e) => { if (!e.target.closest('.account-row')) closeAccountMenus(); });
@@ -1026,12 +1050,12 @@ $('login-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const name = $('name-input').value.trim();
   if (!name) return;
-  if (loginGrade === null) { alert('Please pick your grade!'); return; }
+  if (loginGrade === null) { $('grade-missing').classList.remove('hidden'); sfx.wrong(); return; }
   const key = name.toLowerCase();
   if (editingKey) {
     // save changes to an existing account (renaming moves it to the new name)
     const taken = Object.entries(data.profiles).find(([k, other]) => k !== editingKey && (k === key || other.name.toLowerCase() === key));
-    if (taken) { alert(`There's already an account called ${taken[1].name}.`); return; }
+    if (taken) { $('name-taken').classList.remove('hidden'); $('name-input').classList.add('taken'); sfx.wrong(); return; }
     const p = data.profiles[editingKey];
     p.name = name;
     p.grade = loginGrade;
@@ -1048,9 +1072,23 @@ $('login-form').addEventListener('submit', (e) => {
     showAccounts();
     return;
   }
-  if (!data.profiles[key]) data.profiles[key] = newProfile(name, loginGrade, loginAvatar);
-  data.profiles[key].grade = loginGrade;
+  // names are unique on this device: a new account can't reuse one that's taken
+  const taken = Object.entries(data.profiles).some(([k, other]) => k === key || other.name.toLowerCase() === key);
+  if (taken) {
+    $('name-taken').classList.remove('hidden');
+    $('name-input').classList.remove('nudge');
+    void $('name-input').offsetWidth;
+    $('name-input').classList.add('nudge', 'taken');
+    $('name-input').focus();
+    sfx.wrong();
+    return;
+  }
+  data.profiles[key] = newProfile(name, loginGrade, loginAvatar);
   signInAs(key);
+});
+$('name-input').addEventListener('input', () => {
+  $('name-taken').classList.add('hidden');
+  $('name-input').classList.remove('taken');
 });
 
 // ---------- profile: avatars, frames + name colors ----------
@@ -1196,19 +1234,28 @@ $('mode-seg').addEventListener('click', (e) => {
   renderReadyDetails();
 });
 
-function showTypingReady() {
+// Ready screen for typing: a typing test (default), a lesson or the placement test.
+let pendingRun = null;
+let readyBack = () => showLobby('play');
+function showTypingReady(run = null, title = 'Are you ready to start the typing test?', details = null, back = () => showLobby('play')) {
   const level = TYPING_LEVELS[player().typingLevel] || TYPING_LEVELS.easy;
   readyFor = 'typing';
+  pendingRun = run;
+  readyBack = back;
   $('mode-seg').classList.add('hidden');
-  $('ready-details').textContent = `${level.label} typing test · ${TYPING_SENTENCES} sentences`;
-  $('screen-ready').querySelector('.ready-title').textContent = 'Are you ready to start the typing test?';
+  $('ready-details').textContent = details || `${level.label} typing test · ${TYPING_SENTENCES} sentences`;
+  $('screen-ready').querySelector('.ready-title').textContent = title;
   $('ready-yes').textContent = 'Yes!';
   $('ready-no').textContent = 'No, go back!';
   show('ready');
 }
 
-$('ready-yes').onclick = () => startCountdown(readyFor === 'typing' ? startTyping : startQuiz);
-$('ready-no').onclick = () => showLobby('play');
+$('ready-yes').onclick = () => {
+  if (readyFor !== 'typing') { startCountdown(startQuiz); return; }
+  const run = pendingRun || testRun();
+  startCountdown(() => startTypingRun(run));
+};
+$('ready-no').onclick = () => (readyFor === 'typing' ? readyBack() : showLobby('play'));
 
 function startCountdown(next) {
   show('countdown');
@@ -1486,7 +1533,14 @@ function stopTimer() {
 // In-game "Are you sure you want to quit?" popup (instead of the browser's own box).
 // The question timer pauses while it's open and picks up where it left off on "No".
 let quitPending = null; // { onYes, resumeLeft }
-function askQuit(onYes) {
+// The same popup is used for other "are you sure?" questions by passing different words.
+const QUIT_WORDS = { title: 'Are you sure you want to quit?', sub: "Your progress won't be saved.", yes: "Yes, I'm sure", no: 'No, I accidentally clicked this!' };
+function askQuit(onYes, words = {}) {
+  const w = { ...QUIT_WORDS, ...words };
+  $('quit-title').textContent = w.title;
+  $('quit-sub').textContent = w.sub;
+  $('quit-yes').textContent = w.yes;
+  $('quit-no').textContent = w.no;
   const running = !!timerFrame;
   const resumeLeft = running ? Math.max(0, (timerEndAt - performance.now()) / 1000) : null;
   stopTimer();
@@ -1548,7 +1602,6 @@ function finishQuiz() {
   // best score is out of a full 25-question course
   if (total === QUESTIONS_PER_COURSE) p.bestScore = Math.max(p.bestScore, score);
   const newBadges = checkBadges(p);
-  gems += newBadges.length * BADGE_GEMS;
   save();
   renderTopbar();
 
@@ -1567,13 +1620,12 @@ function finishQuiz() {
     parts.push(`${score * 2} for correct answers`, '10 perfect bonus');
     if (quiz.comboGems) parts.push(`${quiz.comboGems} for streaks in a row`);
   }
-  if (newBadges.length) parts.push(`${newBadges.length * BADGE_GEMS} for new badges`);
-  $('result-gems').textContent = perfect || newBadges.length
-    ? `You earned ${gems} gems (${parts.join(', ')})${perfect ? '' : '. Get every question right to earn course gems!'}`
+  $('result-gems').textContent = perfect
+    ? `You earned ${gems} gems (${parts.join(', ')})`
     : 'No gems this time. Get every question right to earn gems!';
 
   $('r-badges').innerHTML = newBadges.map((b) =>
-    `<div class="new-badge"><span class="badge-ico">${b.icon}</span><span><strong>New badge: ${b.name}</strong><small>${b.desc}</small></span></div>`).join('');
+    `<div class="new-badge"><span class="badge-ico">${b.icon}</span><span><strong>New badge: ${b.name}</strong><small>Claim ${BADGE_GEMS} gems for it in the Progress tab!</small></span></div>`).join('');
   if (newBadges.length) setTimeout(sfx.badge, 400);
 
   $('r-times').innerHTML = results.map((r, i) =>
@@ -1629,6 +1681,7 @@ function renderLobby() {
     grid.appendChild(b);
   });
   renderTypingLevels();
+  renderLessonCta();
   renderTopbar();
 }
 $('start-course').onclick = () => showReady();
@@ -1695,15 +1748,30 @@ $('typing-grid').addEventListener('click', (e) => {
   save();
   $('typing-grid').querySelectorAll('.type-card').forEach((x) => x.classList.toggle('selected', x === b));
 });
-$('start-typing').onclick = showTypingReady;
+$('start-typing').onclick = () => showTypingReady();
 
-let typing = null; // { sentences, i, typed, keys, mistakes, locked }
+// A typing "run" is a typing test, a typing lesson or the placement test.
+// They all use the same typing screen: { kind, sentences, i, typed, keys, mistakes, activeMs, locked, ... }
+let typing = null;
 
-function startTyping() {
-  const level = player().typingLevel || 'easy';
-  typing = { level, sentences: shuffle([...SENTENCES[level]]).slice(0, TYPING_SENTENCES), i: 0, typed: '', keys: 0, mistakes: 0, locked: false };
+function startTypingRun(run) {
+  typing = { ...run, i: 0, typed: '', keys: 0, mistakes: 0, activeMs: 0, partsPassed: 0, stopEarly: false, locked: false };
+  renderKeyboard();
   show('typing');
   showSentence();
+}
+function testRun() {
+  const level = player().typingLevel || 'easy';
+  return { kind: 'test', level, sentences: shuffle([...SENTENCES[level]]).slice(0, TYPING_SENTENCES) };
+}
+const startTyping = () => startTypingRun(testRun());
+
+// "Sentence 2 / 10", "Lesson 4 · line 2 / 3", "Placement test · part 2 / 4"
+function runLabel(n, sep = ' / ') {
+  const total = typing.sentences.length;
+  if (typing.kind === 'lesson') return `Lesson ${typing.lesson + 1} · line ${n}${sep}${total}`;
+  if (typing.kind === 'placement') return `Placement test · part ${n}${sep}${total}`;
+  return `Sentence ${n}${sep}${total}`;
 }
 
 function showSentence() {
@@ -1713,8 +1781,8 @@ function showSentence() {
   typing.sMistakes = 0;
   typing.sStart = 0;
   typing.locked = false;
-  $('typing-count').textContent = `Sentence ${typing.i + 1} / ${TYPING_SENTENCES}`;
-  $('typing-progress').style.width = `${(typing.i / TYPING_SENTENCES) * 100}%`;
+  $('typing-count').textContent = runLabel(typing.i + 1);
+  $('typing-progress').style.width = `${(typing.i / typing.sentences.length) * 100}%`;
   const input = $('typing-input');
   input.value = '';
   input.maxLength = s.length;
@@ -1746,6 +1814,7 @@ function renderSentence() {
     start = end;
   });
   $('typing-text').innerHTML = html;
+  showKey(s[at]);
 }
 
 // Phones sometimes swap in curly quotes; treat them like normal ones.
@@ -1791,17 +1860,23 @@ function sentenceMessage() {
 
 function finishSentence() {
   typing.locked = true;
+  if (typing.sStart) typing.activeMs += performance.now() - typing.sStart;
+  // the placement test stops at the first part typed below the passing accuracy
+  if (typing.kind === 'placement') {
+    const lineAcc = typing.sKeys ? (typing.sKeys - typing.sMistakes) / typing.sKeys : 1;
+    if (lineAcc >= PASS_ACC) typing.partsPassed++; else typing.stopEarly = true;
+  }
   const cheer = sentenceMessage(); // picked now, so the pause below doesn't count as typing time
   $('typing-progress').style.width = `${((typing.i + 1) / typing.sentences.length) * 100}%`;
   const current = typing;
-  const last = typing.i + 1 >= typing.sentences.length;
+  const last = typing.stopEarly || typing.i + 1 >= typing.sentences.length;
   // little cutscene between sentences
   setTimeout(() => {
     if (typing !== current) return;
     if (last) { finishTyping(); return; }
     sfx.combo();
     $('typing-cut-title').textContent = cheer;
-    $('typing-cut-sub').textContent = `Sentence ${typing.i + 2} of ${TYPING_SENTENCES}`;
+    $('typing-cut-sub').textContent = runLabel(typing.i + 2, ' of ');
     $('typing-cut').classList.remove('hidden');
     setTimeout(() => {
       $('typing-cut').classList.add('hidden');
@@ -1812,21 +1887,71 @@ function finishSentence() {
   }, 400);
 }
 
+// End screen buttons change with the kind of run, so they're set each time.
+let typedoneActions = { again: () => showTypingReady(), lobby: () => showLobby('play') };
+$('type-again').onclick = () => typedoneActions.again();
+$('type-lobby').onclick = () => typedoneActions.lobby();
+
 function finishTyping() {
-  // 100% only with zero mistakes (so one slip never rounds up to "perfect")
-  const raw = typing.keys ? ((typing.keys - typing.mistakes) / typing.keys) * 100 : 100;
-  const acc = typing.mistakes ? Math.min(99, Math.round(raw)) : 100;
-  $('type-title').textContent = acc === 100 ? 'PERFECT!' : acc >= 90 ? 'Great typing!' : acc >= 75 ? 'Nice work!' : 'Keep practicing!';
-  $('type-acc').textContent = `${acc}%`;
   const p = player();
-  const perfect = !typing.mistakes;
-  const gems = perfect ? TYPING_LEVELS[typing.level].gems : 0;
+  const run = typing;
+  // 100% only with zero mistakes (so one slip never rounds up to "perfect")
+  const raw = run.keys ? ((run.keys - run.mistakes) / run.keys) * 100 : 100;
+  const acc = run.mistakes ? Math.min(99, Math.round(raw)) : 100;
+  // words per minute: correct letters / 5, over the time spent actually typing
+  const wpm = run.activeMs ? Math.round(((run.keys - run.mistakes) / 5) / (run.activeMs / 60000)) : 0;
+  const perfect = !run.mistakes;
+  p.typingHistory.push({ d: dayKey(), kind: run.kind, acc, wpm });
+  p.typingHistory = p.typingHistory.slice(-30);
+  p.bestWpm = Math.max(p.bestWpm, wpm);
+
+  $('type-acc').textContent = `${acc}%`;
+  $('type-wpm').textContent = wpm;
+  let gems = 0;
+  let note = '';
+  if (run.kind === 'test') {
+    $('type-title').textContent = acc === 100 ? 'PERFECT!' : acc >= 90 ? 'Great typing!' : acc >= 75 ? 'Nice work!' : 'Keep practicing!';
+    gems = perfect ? TYPING_LEVELS[run.level].gems : 0;
+    typedoneActions = { again: () => showTypingReady(), lobby: () => showLobby('play') };
+    $('type-again').textContent = 'Play again';
+    $('type-lobby').textContent = 'Back to lobby';
+  } else if (run.kind === 'lesson') {
+    const i = run.lesson;
+    const passed = acc >= PASS_ACC * 100;
+    const best = p.lessonBest[i];
+    if (!best || acc > best.acc || (acc === best.acc && wpm > best.wpm)) p.lessonBest[i] = { acc, wpm };
+    const unlockedNew = passed && i === p.lessonUnlocked;
+    if (unlockedNew) p.lessonUnlocked = i + 1;
+    gems = perfect ? LESSON_GEMS : 0;
+    $('type-title').textContent = perfect ? 'PERFECT!' : passed ? 'Lesson passed!' : 'Almost there!';
+    note = !passed ? `Get ${PASS_ACC * 100}% accuracy to pass this lesson. You can do it!`
+      : i + 1 >= LESSONS.length ? 'You finished every typing lesson!'
+      : unlockedNew ? `Lesson ${i + 2}: ${LESSONS[i + 1].title} is unlocked!` : 'Lesson passed again!';
+    const next = passed && i + 1 < LESSONS.length;
+    typedoneActions = { again: () => showLessonReady(next ? i + 1 : i), lobby: showLessons };
+    $('type-again').textContent = next ? 'Next lesson' : 'Try again';
+    $('type-lobby').textContent = 'All lessons';
+  } else {
+    // placement: start at the first lesson after the parts they typed well
+    const start = PLACEMENT_UNLOCK[run.partsPassed];
+    p.placementDone = true;
+    p.lessonUnlocked = Math.max(p.lessonUnlocked, start);
+    $('type-title').textContent = 'Placement done!';
+    note = start >= LESSONS.length
+      ? 'You already know every key! Try the typing tests to get faster.'
+      : `Start with Lesson ${start + 1}: ${LESSONS[start].title}`;
+    typedoneActions = { again: showLessons, lobby: () => showLobby('play') };
+    $('type-again').textContent = 'Go to lessons';
+    $('type-lobby').textContent = 'Back to lobby';
+  }
   p.gems += gems;
   p.gemsEarned += gems;
   save();
   renderTopbar();
-  $('type-gems').textContent = perfect
-    ? `You earned ${gems} gems for typing with no mistakes!`
+  $('type-note').textContent = note;
+  $('type-note').classList.toggle('hidden', !note);
+  $('type-gems').textContent = run.kind === 'placement' ? ''
+    : perfect ? `You earned ${gems} gems for typing with no mistakes!`
     : 'No gems this time. Type with no mistakes to earn gems!';
   sfx.chest();
   typing = null;
@@ -1835,12 +1960,207 @@ function finishTyping() {
 }
 
 $('typing-quit').onclick = () => askQuit(() => {
+  const kind = typing && typing.kind;
   typing = null;
   $('typing-cut').classList.add('hidden');
-  showLobby('play');
+  if (kind === 'test') showLobby('play'); else showLessons();
 });
-$('type-again').onclick = showTypingReady;
-$('type-lobby').onclick = () => showLobby('play');
+
+// ---------- on-screen keyboard with finger colors ----------
+// Every key is colored by the finger that should press it; the next key glows.
+const KB_ROWS = [
+  ['`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '='],
+  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'],
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'"],
+  ['shiftL', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'shiftR'],
+  [' '],
+];
+const FINGER_KEYS = { lp: '`1qaz', lr: '2wsx', lm: '3edc', li: '45rtfgvb', ri: '67yuhjnm', rm: '8ik,', rr: '9ol.', rp: "0-=p[];'/", th: ' ' };
+const FINGER = { shiftL: 'lp', shiftR: 'rp' };
+Object.entries(FINGER_KEYS).forEach(([f, keys]) => [...keys].forEach((k) => { FINGER[k] = f; }));
+const FINGER_NAMES = {
+  lp: 'left pinky', lr: 'left ring finger', lm: 'left middle finger', li: 'left pointer finger',
+  ri: 'right pointer finger', rm: 'right middle finger', rr: 'right ring finger', rp: 'right pinky', th: 'thumb',
+};
+// characters that need Shift, and the key they're on
+const SHIFTED = { '!': '1', '@': '2', '#': '3', $: '4', '%': '5', '^': '6', '&': '7', '*': '8', '(': '9', ')': '0',
+  _: '-', '+': '=', '{': '[', '}': ']', ':': ';', '"': "'", '<': ',', '>': '.', '?': '/', '~': '`' };
+
+function renderKeyboard() {
+  if ($('kb').childElementCount) return;
+  $('kb').innerHTML = KB_ROWS.map((row, r) => `<div class="kb-row kb-row-${r}">${row.map((k) => {
+    const label = k === 'shiftL' || k === 'shiftR' ? 'Shift' : k === ' ' ? '' : k;
+    return `<span class="kk f-${FINGER[k]}${k === ' ' ? ' kk-space' : ''}${k.startsWith('shift') ? ' kk-shift' : ''}${k === 'f' || k === 'j' ? ' kk-bump' : ''}" data-k="${escapeHTML(k)}">${escapeHTML(label)}</span>`;
+  }).join('')}</div>`).join('');
+}
+
+function showKey(ch) {
+  document.querySelectorAll('#kb .kk.next').forEach((k) => k.classList.remove('next'));
+  if (ch === undefined) { $('finger-hint').textContent = ''; return; }
+  let base = ch;
+  let shift = false;
+  if (/[A-Z]/.test(ch)) { base = ch.toLowerCase(); shift = true; } else if (SHIFTED[ch]) { base = SHIFTED[ch]; shift = true; }
+  const finger = FINGER[base];
+  const key = document.querySelector(`#kb .kk[data-k="${CSS.escape(base)}"]`);
+  if (key) key.classList.add('next');
+  let hint = finger === 'th' ? 'Use your thumb on the space bar' : finger ? `Use your ${FINGER_NAMES[finger]}` : '';
+  if (shift && finger) {
+    const side = finger.startsWith('l') ? 'shiftR' : 'shiftL';
+    document.querySelector(`#kb .kk[data-k="${side}"]`).classList.add('next');
+    hint += ` + hold Shift with your ${side === 'shiftL' ? 'left' : 'right'} pinky`;
+  }
+  $('finger-hint').textContent = hint;
+}
+
+// ---------- typing lessons ----------
+// One or two new keys per lesson. Pass with 90% accuracy to unlock the next one.
+const PASS_ACC = 0.9;
+const LESSON_GEMS = 10; // for a lesson with zero mistakes
+const LESSON_LINES = 3;
+const LESSONS = [
+  { title: 'Home row: left hand', keys: 'asdf' },
+  { title: 'Home row: right hand', keys: 'jkl;' },
+  { title: 'The whole home row', keys: '' },
+  { title: 'G and H', keys: 'gh' },
+  { title: 'E and I', keys: 'ei' },
+  { title: 'R and U', keys: 'ru' },
+  { title: 'T and Y', keys: 'ty' },
+  { title: 'W and O', keys: 'wo' },
+  { title: 'Q and P', keys: 'qp' },
+  { title: 'V and M', keys: 'vm' },
+  { title: 'C and comma', keys: 'c,' },
+  { title: 'X and period', keys: 'x.' },
+  { title: 'Z, B and N', keys: 'zbn' },
+  { title: 'Capital letters (Shift)', keys: '', caps: true },
+  { title: 'Numbers 1 to 5', keys: '12345' },
+  { title: 'Numbers 6 to 0', keys: '67890' },
+  { title: 'Question and exclamation marks', keys: '?!' },
+];
+const CAPS_LESSON = LESSONS.findIndex((l) => l.caps);
+// the home-row key each finger rests on, used to build "reach" drills
+const HOME_KEY = { lp: 'a', lr: 's', lm: 'd', li: 'f', ri: 'j', rm: 'k', rr: 'l', rp: ';' };
+const WORDS = [...new Set(`a as ad add dad sad fad lad all fall ask asks flask salad glad flag half hall shall has had dash gas
+  she he the see seed feed need heel hide side ride wide kid kids lid did fish wish dish like hike bike life file head read
+  real deal seal heal sea tea red rug run fun sun rush hug hut nut us use sure rule fur true tree three try toy yes yet day
+  say way stay play ray tray they eat ate hat cat rat sat fat that this it its is his her tall wall will well tell fell yell
+  sell shell tool pool food good wood hood look took book cook root word world two too who how now row low slow glow show
+  owl wow top pot pop hop stop shop drop open paper happy puppy quiet quit quick queen park part pet help keep deep sleep
+  map mom me my made game time home more move love live have very vote ever over river seven five give cup cake can car
+  care call come cool color nice rice face race box fox six mix fix next extra zoo zebra zip buzz maze size lazy blue big
+  bag bat bed bee bus ball bear best both baby bird but by be an and in on no not nap net new nine nose name night ten tent
+  green brown moon snow rain wind train plane frog dog pig duck lion tiger apple juice jam jump joy kite king milk panda
+  pizza house school friend smile laugh music dance sing draw paint write math plus count number`.split(/\s+/).filter(Boolean))];
+
+const lessonKeys = (i) => LESSONS.slice(0, i + 1).map((l) => l.keys).join('');
+const fitLine = (tokens, max = 32) => {
+  let line = '';
+  for (const t of tokens) { if ((line + ' ' + t).trim().length > max) break; line = (line + ' ' + t).trim(); }
+  return line;
+};
+
+function lessonLines(i) {
+  const lesson = LESSONS[i];
+  const keys = lessonKeys(i);
+  const letters = [...new Set(keys.replace(/[^a-z]/g, ''))];
+  const fresh = [...lesson.keys];
+  const freshLetters = fresh.filter((k) => /[a-z]/.test(k));
+  const words = WORDS.filter((w) => [...w].every((c) => letters.includes(c)));
+  const pickWords = (n) => {
+    const preferred = words.filter((w) => freshLetters.some((c) => w.includes(c)));
+    return Array.from({ length: n }, () => pick(preferred.length && Math.random() < 0.6 ? preferred : words));
+  };
+  const group = () => Array.from({ length: rand(2, 4) }, (_, k) => (k === 0 && freshLetters.length ? pick(freshLetters) : pick(letters))).join('');
+  let lines;
+  if (lesson.caps) {
+    const cap = (w) => w[0].toUpperCase() + w.slice(1);
+    lines = [
+      fitLine(shuffle(letters.slice()).map((c) => c.toUpperCase() + c)),
+      fitLine(pickWords(10).map(cap)),
+      fitLine(pickWords(10)).replace(/^./, (c) => c.toUpperCase()) + '.',
+    ];
+  } else if (/\d/.test(lesson.keys)) {
+    lines = [
+      fitLine(shuffle(fresh.map((d) => d + d))),
+      fitLine(Array.from({ length: 10 }, () => pick(fresh) + pick(letters))),
+      fitLine(pickWords(8).flatMap((w) => [pick(fresh) + pick(fresh), w])),
+    ];
+  } else if (lesson.keys === '?!') {
+    lines = [
+      fitLine(['?? !!', '?!', '!?', 'is it?', 'yes!', 'no?', 'wow!']),
+      `${fitLine(pickWords(5), 18)}? yes!`,
+      `${fitLine(pickWords(4), 14)}! ${fitLine(pickWords(4), 14)}?`,
+    ];
+  } else {
+    // new keys: drills that reach from the home row; review lessons use all known letters
+    const drillKeys = fresh.length ? fresh : letters;
+    const drills = drillKeys.flatMap((k) => { const h = HOME_KEY[FINGER[k]] || 'f'; return [k + k + k, h + k + h, k + h]; });
+    let third = words.length >= 3 ? fitLine(pickWords(12)) : fitLine(Array.from({ length: 10 }, group));
+    if (keys.includes(',')) third = third.replace(' ', ', ');
+    if (keys.includes('.')) third += '.';
+    lines = [fitLine(shuffle(drills)), fitLine(Array.from({ length: 10 }, group)), third];
+  }
+  return lines.slice(0, LESSON_LINES);
+}
+
+function lessonRun(i) {
+  return { kind: 'lesson', lesson: i, sentences: lessonLines(i) };
+}
+
+// ---------- placement test ----------
+// 4 parts, each adding keys; stops at the first part typed below 90%.
+const PLACEMENT_LINES = [
+  'a sad lad asks dad; all fall',
+  'we try to read a story outside',
+  'my brave fox can jump over six big boxes.',
+  'Max has 3 cats, 2 dogs, and 1 fish!',
+];
+const PLACEMENT_UNLOCK = [0, 3, 9, CAPS_LESSON, LESSONS.length]; // lesson to start at, by parts passed
+const placementRun = () => ({ kind: 'placement', sentences: [...PLACEMENT_LINES] });
+
+// ---------- lessons screen ----------
+function showLessons() {
+  renderLessons();
+  show('lessons');
+}
+function renderLessons() {
+  const p = player();
+  $('placement-sub').textContent = p.placementDone
+    ? 'You took the placement test. You can take it again anytime.'
+    : 'Already know some keys? Find the right lesson to start with.';
+  $('lesson-list').innerHTML = LESSONS.map((l, i) => {
+    const state = i < p.lessonUnlocked ? 'done' : i === p.lessonUnlocked ? 'current' : 'locked';
+    const best = p.lessonBest[i];
+    const chips = (l.caps ? ['Shift'] : [...l.keys]).map((k) => `<span class="key-chip">${escapeHTML(k)}</span>`).join('');
+    return `<button type="button" class="lesson-card ${state}" data-i="${i}"${state === 'locked' ? ' disabled' : ''}>
+      <span class="lesson-num">${state === 'done' ? '✓' : i + 1}</span>
+      <span class="lesson-info"><strong>${escapeHTML(l.title)}</strong>
+        <span class="lesson-keys">${chips || '<small>Review</small>'}</span>
+        ${best ? `<small>Best: ${best.acc}% · ${best.wpm} WPM</small>` : ''}</span>
+      ${state === 'current' ? '<span class="lesson-go">Start</span>' : state === 'locked' ? '<span class="lesson-lock" aria-label="Locked">🔒</span>' : ''}
+    </button>`;
+  }).join('');
+}
+$('lesson-list').addEventListener('click', (e) => {
+  const b = e.target.closest('.lesson-card');
+  if (b && !b.disabled) showLessonReady(Number(b.dataset.i));
+});
+$('placement-card').onclick = () => showTypingReady(placementRun(), 'Ready for the placement test?',
+  `${PLACEMENT_LINES.length} short parts · type what you can`, showLessons);
+$('lessons-back').onclick = () => showLobby('play');
+$('lesson-cta').onclick = showLessons;
+
+function showLessonReady(i) {
+  showTypingReady(lessonRun(i), `Ready for Lesson ${i + 1}?`,
+    `${LESSONS[i].title} · ${LESSON_LINES} short lines · ${PASS_ACC * 100}% to pass`, showLessons);
+}
+
+function renderLessonCta() {
+  const p = player();
+  const n = p.lessonUnlocked;
+  $('lesson-cta-sub').textContent = n >= LESSONS.length
+    ? 'All lessons done! Practice with typing tests.'
+    : `Lesson ${n + 1}: ${LESSONS[n].title}`;
+}
 
 function renderRewards() {
   const p = player();
@@ -1981,6 +2301,8 @@ function renderStats() {
   const p = player();
   const stats = [
     ['Gems', p.gems.toLocaleString()],
+    ['Typing lessons', `${Math.min(p.lessonUnlocked, LESSONS.length)} / ${LESSONS.length}`],
+    ['Best typing speed', `${p.bestWpm} WPM`],
     ['Day streak', p.streak],
     ['Longest streak', p.bestStreak],
     ['Courses finished', p.courses],
@@ -1994,8 +2316,10 @@ function renderStats() {
   $('badge-count').textContent = `${p.badges.length} of ${BADGES.length}`;
   $('badge-grid').innerHTML = BADGES.map((b) => {
     const has = p.badges.includes(b.id);
-    return `<div class="badge-card${has ? ' earned' : ''}" title="${b.desc}">
-      <span class="badge-ico">${b.icon}</span><strong>${b.name}</strong><small>${b.desc}</small></div>`;
+    const claim = has && !p.badgesClaimed.includes(b.id)
+      ? `<button type="button" class="btn primary small claim-btn" data-badge="${b.id}">Claim ${BADGE_GEMS} gems</button>` : '';
+    return `<div class="badge-card${has ? ' earned' : ''}${claim ? ' claimable' : ''}" title="${b.desc}">
+      <span class="badge-ico">${b.icon}</span><strong>${b.name}</strong><small>${b.desc}</small>${claim}</div>`;
   }).join('');
 
   renderParent(p);
@@ -2037,14 +2361,131 @@ function renderParent(p) {
         <span class="day-plot"><span class="day-val">${d.n || ''}</span><span class="day-bar" style="height:${d.n ? Math.max(4, (d.n / max) * 100) : 0}%"></span></span>
         <span class="day-lbl">${d.label}</span>
       </div>`).join('')}</div></div>`;
+
+  // typing: lessons passed, plus speed (WPM) for the last 10 typing lessons/tests
+  const hist = p.typingHistory.slice(-10);
+  const kindName = { test: 'Typing test', lesson: 'Lesson', placement: 'Placement test' };
+  html += `<div class="parent-card"><h4>Typing <span class="muted">${Math.min(p.lessonUnlocked, LESSONS.length)} of ${LESSONS.length} lessons passed</span></h4>`;
+  if (!hist.length) {
+    html += '<p class="sub">Finish a typing lesson or test to see typing speed here.</p>';
+  } else {
+    const maxW = Math.max(10, ...hist.map((h) => h.wpm));
+    const avgAcc = Math.round(hist.reduce((s, h) => s + h.acc, 0) / hist.length);
+    html += `<p class="parent-note chart-title">Words per minute, last ${hist.length} typing sessions</p>
+      <div class="week-chart wpm-chart" style="grid-template-columns: repeat(${hist.length}, 1fr)">${hist.map((h, i) => `
+        <div class="day-col" title="${kindName[h.kind]} on ${h.d}: ${h.wpm} WPM, ${h.acc}% accuracy">
+          <span class="day-plot"><span class="day-val">${h.wpm}</span><span class="day-bar" style="height:${Math.max(4, (h.wpm / maxW) * 100)}%"></span></span>
+          <span class="day-lbl">${i + 1}</span>
+        </div>`).join('')}</div>
+      <p class="parent-note">Average accuracy: <strong>${avgAcc}%</strong> · Best speed: <strong>${p.bestWpm} WPM</strong></p>`;
+  }
+  html += '</div>';
   $('parent-view').innerHTML = html;
 }
+
+$('badge-grid').addEventListener('click', (e) => {
+  const b = e.target.closest('.claim-btn');
+  if (b) claimBadge(b.dataset.badge);
+});
 
 $('logout-btn').onclick = () => {
   data.current = null;
   save();
   showLogin();
 };
+
+// ---------- easier-to-read font (per account) ----------
+// Atkinson Hyperlegible: letters that are easy to tell apart, which helps early and
+// struggling readers. It's only downloaded when someone turns it on.
+function applyFont() {
+  const p = player();
+  const on = !!(p && p.easyFont);
+  document.body.classList.toggle('easy-font', on);
+  if (on && !$('easy-font-css')) {
+    const link = document.createElement('link');
+    link.id = 'easy-font-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap';
+    document.head.appendChild(link);
+  }
+  $('font-switch').classList.toggle('on', on);
+  $('font-switch').setAttribute('aria-checked', String(on));
+}
+$('font-switch').onclick = () => {
+  const p = player();
+  p.easyFont = !p.easyFont;
+  save();
+  applyFont();
+};
+
+// ---------- back up / restore progress ----------
+// Progress lives only on this device, so families can save it to a file and
+// load it on another device. Nothing is sent anywhere.
+function backupProgress() {
+  const p = player();
+  const json = JSON.stringify({ flashyBackup: 1, savedAt: new Date().toISOString(), profile: p }, null, 2);
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `flashy-backup-${p.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${dayKey()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showBanner('💾', 'Backup saved! Keep the file somewhere safe.');
+}
+
+// Only keep what a Flashy profile should have, with sensible types.
+function cleanBackup(raw) {
+  if (!raw || raw.flashyBackup !== 1 || !raw.profile || typeof raw.profile.name !== 'string') return null;
+  const src = raw.profile;
+  const name = src.name.trim().slice(0, 16);
+  if (!name) return null;
+  const p = newProfile(name, Math.min(8, Math.max(0, Number(src.grade) || 0)), 'fox');
+  const nums = ['gems', 'gemsEarned', 'streak', 'bestStreak', 'chestsOpened', 'courses', 'totalCorrect', 'bestScore',
+    'freezes', 'bestCombo', 'perfects', 'purchases', 'bestWpm', 'lessonUnlocked', 'lastWelcome'];
+  nums.forEach((k) => { if (Number.isFinite(Number(src[k]))) p[k] = Number(src[k]); });
+  const strs = ['op', 'mode', 'typingLevel', 'avatar', 'frame', 'nameColor', 'lastVisit', 'lastClaim'];
+  strs.forEach((k) => { if (typeof src[k] === 'string') p[k] = src[k]; });
+  const arrs = ['claimedDays', 'ownedAvatars', 'ownedFrames', 'ownedNameColors', 'badges', 'badgesClaimed', 'reviewQueue', 'typingHistory'];
+  arrs.forEach((k) => { if (Array.isArray(src[k])) p[k] = src[k]; });
+  ['subjectStats', 'daily', 'lessonBest'].forEach((k) => { if (src[k] && typeof src[k] === 'object') p[k] = src[k]; });
+  ['speedy', 'placementDone', 'easyFont', 'seenIntro'].forEach((k) => { if (typeof src[k] === 'boolean') p[k] = src[k]; });
+  p.seenIntro = true;
+  return upgradeProfile(p);
+}
+
+async function restoreFromFile(file) {
+  let raw = null;
+  try { raw = JSON.parse(await file.text()); } catch (e) { /* not JSON */ }
+  const p = cleanBackup(raw);
+  if (!p) { showBanner('⚠️', "That file isn't a Flashy backup."); sfx.wrong(); return; }
+  const key = p.name.toLowerCase();
+  const restore = () => {
+    data.profiles[key] = p;
+    save();
+    showBanner('✅', `Progress restored for ${p.name}!`);
+    signInAs(key);
+  };
+  if (data.profiles[key]) {
+    askQuit(restore, {
+      title: `Replace ${p.name}'s progress?`,
+      sub: `${p.name} already has progress on this device. Restoring will replace it with the backup.`,
+      yes: 'Yes, restore the backup',
+      no: 'No, keep what is here',
+    });
+  } else {
+    restore();
+  }
+}
+$('backup-btn').onclick = backupProgress;
+$('restore-btn').onclick = () => $('restore-file').click();
+$('restore-login').onclick = () => $('restore-file').click();
+$('restore-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (file) restoreFromFile(file);
+});
 
 // ---------- install as an app ----------
 let installEvent = null;
