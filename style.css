@@ -928,18 +928,19 @@ input.taken { border-color: #ff9a9a; }
   flex: 0 1 40px; min-width: 0; height: clamp(28px, 7vw, 40px);
   display: grid; place-items: center; border-radius: 8px;
   font-weight: 700; font-size: clamp(.7rem, 2.6vw, 1rem); color: var(--night);
-  box-shadow: 0 3px 0 rgba(0, 0, 0, .35); opacity: .55;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .35); opacity: .6;
   transition: transform .15s var(--spring), opacity .15s, box-shadow .15s;
 }
 .kk-shift { flex-basis: 70px; font-size: clamp(.6rem, 2.2vw, .85rem); }
 .kk-space { flex: 0 1 280px; }
 .kk-bump { text-decoration: underline; text-underline-offset: 3px; }
 .kk.next { opacity: 1; transform: translateY(-3px) scale(1.1); box-shadow: 0 0 0 3px var(--cream), 0 0 16px rgba(255, 255, 255, .55); }
-.f-lp, .f-rp { background: #f9a8d4; }
-.f-lr, .f-rr { background: #fcd34d; }
-.f-lm, .f-rm { background: #86efac; }
-.f-li, .f-ri { background: #93c5fd; }
-.f-th { background: #d1d5db; }
+/* each finger is a different shade of Flashy green (pointer = lightest, pinky = darkest) */
+.f-li, .f-ri { background: #b7dcbc; }
+.f-lm, .f-rm { background: #8BBB92; }
+.f-lr, .f-rr { background: #5f9e78; color: var(--cream); }
+.f-lp, .f-rp { background: #2A835F; color: var(--cream); }
+.f-th { background: #1d6b64; color: var(--cream); }
 
 /* ================= Typing end screen ================= */
 .type-stats { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
