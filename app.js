@@ -1635,6 +1635,9 @@ function startTyping() {
 function showSentence() {
   const s = typing.sentences[typing.i];
   typing.typed = '';
+  typing.sKeys = 0;      // this sentence only, for the cutscene message
+  typing.sMistakes = 0;
+  typing.sStart = 0;
   typing.locked = false;
   $('typing-count').textContent = `Sentence ${typing.i + 1} / ${TYPING_SENTENCES}`;
   $('typing-progress').style.width = `${(typing.i / TYPING_SENTENCES) * 100}%`;
@@ -1681,8 +1684,10 @@ $('typing-input').addEventListener('input', (e) => {
   if (value !== e.target.value) e.target.value = value;
   // every new letter counts toward accuracy, even if it's fixed later
   for (let i = typing.typed.length; i < value.length; i++) {
+    if (!typing.sStart) typing.sStart = performance.now();
     typing.keys++;
-    if (value[i] !== s[i]) { typing.mistakes++; sfx.tick(); }
+    typing.sKeys++;
+    if (value[i] !== s[i]) { typing.mistakes++; typing.sMistakes++; sfx.tick(); }
   }
   typing.typed = value;
   if (value.length) $('typing-hint').classList.add('hidden');
@@ -1691,8 +1696,28 @@ $('typing-input').addEventListener('input', (e) => {
 });
 $('typing-card').addEventListener('click', () => $('typing-input').focus());
 
+// A random cheer that fits how the last sentence went (speed + mistakes).
+const FAST_WPM = 30;
+const CHEERS = {
+  fast:    ['That was quick!', 'Super speedy!', 'Whoa, so fast!'],
+  perfect: ['Perfect!', 'Nailed it!', 'Great job!', 'No mistakes!'],
+  good:    ['Good job!', 'Almost perfect!', 'Nice typing!', 'So close to perfect!'],
+  okay:    ['Not bad!', 'Getting there!', 'Nice try!'],
+  low:     ['Keep trying!', 'You can do it!', 'Slow and steady!'],
+};
+function sentenceMessage() {
+  const s = typing.sentences[typing.i];
+  const acc = typing.sKeys ? (typing.sKeys - typing.sMistakes) / typing.sKeys : 1;
+  const minutes = typing.sStart ? (performance.now() - typing.sStart) / 60000 : 1;
+  const wpm = s.length / 5 / Math.max(minutes, 0.01);
+  const group = typing.sMistakes === 0 ? (wpm >= FAST_WPM ? 'fast' : 'perfect')
+    : acc >= 0.9 ? 'good' : acc >= 0.75 ? 'okay' : 'low';
+  return pick(CHEERS[group]);
+}
+
 function finishSentence() {
   typing.locked = true;
+  const cheer = sentenceMessage(); // picked now, so the pause below doesn't count as typing time
   $('typing-progress').style.width = `${((typing.i + 1) / typing.sentences.length) * 100}%`;
   const current = typing;
   const last = typing.i + 1 >= typing.sentences.length;
@@ -1701,6 +1726,7 @@ function finishSentence() {
     if (typing !== current) return;
     if (last) { finishTyping(); return; }
     sfx.combo();
+    $('typing-cut-title').textContent = cheer;
     $('typing-cut-sub').textContent = `Sentence ${typing.i + 2} of ${TYPING_SENTENCES}`;
     $('typing-cut').classList.remove('hidden');
     setTimeout(() => {
