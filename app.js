@@ -1898,8 +1898,11 @@ function finishTyping() {
   // 100% only with zero mistakes (so one slip never rounds up to "perfect")
   const raw = run.keys ? ((run.keys - run.mistakes) / run.keys) * 100 : 100;
   const acc = run.mistakes ? Math.min(99, Math.round(raw)) : 100;
-  // words per minute: correct letters / 5, over the time spent actually typing
-  const wpm = run.activeMs ? Math.round(((run.keys - run.mistakes) / 5) / (run.activeMs / 60000)) : 0;
+  // words per minute: correct letters / 5, over the time spent actually typing.
+  // Each letter counts as at least 50ms and the result is capped, so pasting or
+  // autocomplete can't produce silly speeds.
+  const minutes = Math.max(run.activeMs, run.keys * 50) / 60000;
+  const wpm = minutes ? Math.min(MAX_WPM, Math.round(((run.keys - run.mistakes) / 5) / minutes)) : 0;
   const perfect = !run.mistakes;
   p.typingHistory.push({ d: dayKey(), kind: run.kind, acc, wpm });
   p.typingHistory = p.typingHistory.slice(-30);
@@ -2015,6 +2018,7 @@ function showKey(ch) {
 // ---------- typing lessons ----------
 // One or two new keys per lesson. Pass with 90% accuracy to unlock the next one.
 const PASS_ACC = 0.9;
+const MAX_WPM = 200; // faster than any kid (or most adults) really types
 const LESSON_GEMS = 10; // for a lesson with zero mistakes
 const LESSON_LINES = 3;
 const LESSONS = [
@@ -2556,9 +2560,32 @@ document.addEventListener('animationend', (e) => {
   if (e.animationName === 'bounce') e.target.classList.remove('bounce');
 });
 
+// ---------- Parents / Privacy pages ----------
+// Remember where you were, so "Back to Flashy" returns to the same tab and scroll spot.
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('.footer-links a');
+  if (!link) return;
+  const tab = document.querySelector('.tab.active');
+  const spot = {
+    screen: $('screen-lobby').classList.contains('hidden') ? 'login' : 'lobby',
+    tab: tab ? tab.dataset.tab : 'play',
+    y: window.scrollY,
+  };
+  try { sessionStorage.setItem('flashy-return', JSON.stringify(spot)); } catch (err) { /* storage blocked */ }
+});
+function takeReturnSpot() {
+  try {
+    const raw = sessionStorage.getItem('flashy-return');
+    sessionStorage.removeItem('flashy-return');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
 // ---------- start ----------
+const returnSpot = takeReturnSpot();
+if (returnSpot) $('splash').remove();
 // Loading screen: shows for about 2 seconds, then fades away.
-setTimeout(() => {
+if (!returnSpot) setTimeout(() => {
   const splash = $('splash');
   splash.classList.add('leaving');
   splash.addEventListener('animationend', (e) => { if (e.target === splash) splash.remove(); });
@@ -2569,7 +2596,8 @@ setTimeout(() => {
   const p = player();
   if (!p) { showLogin(); return; }
   touchStreak(p);
-  showLobby('play');
+  showLobby(returnSpot && returnSpot.screen === 'lobby' ? returnSpot.tab : 'play');
+  if (returnSpot) requestAnimationFrame(() => window.scrollTo(0, returnSpot.y || 0));
   maybeToast();
   maybeWelcome();
   showStreakBreak();

@@ -15,6 +15,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Coming back from the Parents/Privacy pages: skip the loading screen (app.js restores the spot).
+    try { if (sessionStorage.getItem('flashy-return')) document.documentElement.classList.add('returning'); } catch (e) { /* storage blocked */ }
+  </script>
 </head>
 <body>
 
