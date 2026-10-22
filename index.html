@@ -307,6 +307,18 @@
     </div>
   </div>
 
+  <!-- Quit a course or typing test? -->
+  <div class="modal hidden" id="quit-modal">
+    <div class="modal-card quit-card" role="dialog" aria-label="Quit">
+      <h2>Are you sure you want to quit?</h2>
+      <p class="sub">Your progress won't be saved.</p>
+      <div class="streak-choices">
+        <button class="btn primary big" id="quit-no">No, I accidentally clicked this!</button>
+        <button class="btn ghost big danger-btn" id="quit-yes">Yes, I'm sure</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Lost streak: use streak freezes or restart -->
   <div class="modal hidden" id="streak-modal">
     <div class="modal-card streak-card" role="dialog" aria-label="You lost your streak">

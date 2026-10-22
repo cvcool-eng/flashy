@@ -872,6 +872,12 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
 .type-acc-box b { font-size: 3rem; color: var(--sage); line-height: 1.1; }
 .type-acc-box span { color: var(--muted); font-weight: 600; }
 
+/* ================= Quit popup ================= */
+.quit-card { border-color: var(--sage); }
+.quit-card h2 { margin-bottom: .3em; }
+.btn.danger-btn { border-color: #ff9a9a; color: #ff9a9a; }
+.btn.danger-btn:hover { background: rgba(255, 107, 107, .15); }
+
 /* ================= Lost streak popup ================= */
 .streak-card { border-color: #7fd3ff; }
 .lost-fire { width: 64px; height: 84px; display: block; margin: 0 auto 10px; animation: lost-sway 2.4s ease-in-out infinite; transform-origin: bottom center; }

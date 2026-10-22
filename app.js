@@ -1312,7 +1312,7 @@ $('choices').addEventListener('click', (e) => {
   checkAnswer(b.dataset.v);
 });
 document.addEventListener('keydown', (e) => {
-  if (!quiz || quiz.locked || $('choices').classList.contains('hidden')) return;
+  if (!quiz || quiz.locked || quitPending || $('choices').classList.contains('hidden')) return;
   const b = $('choices').children[Number(e.key) - 1];
   if (b) b.click();
 });
@@ -1410,11 +1410,16 @@ $('combo-pop').addEventListener('animationend', () => $('combo-pop').classList.a
 // ---------- question timer ----------
 let timerFrame = null;
 
-function startTimer(seconds) {
+// `left` lets a paused timer pick up where it stopped (total stays the full time for the bar).
+let timerEndAt = 0;
+let timerTotal = 0;
+function startTimer(seconds, left = seconds) {
   stopTimer();
   const total = seconds * 1000;
-  const end = performance.now() + total;
-  let lastSec = seconds;
+  const end = performance.now() + left * 1000;
+  timerEndAt = end;
+  timerTotal = seconds;
+  let lastSec = Math.ceil(left);
   const tick = (now) => {
     const left = Math.max(0, end - now);
     const sec = Math.ceil(left / 1000);
@@ -1433,14 +1438,40 @@ function stopTimer() {
   timerFrame = null;
 }
 
-$('quit-btn').onclick = () => {
-  if (confirm('Quit this course? Your progress in this course will be lost.')) {
-    stopTimer();
-    quiz = null;
-    $('retry-intro').classList.add('hidden');
-    showLobby('play');
-  }
+// In-game "Are you sure you want to quit?" popup (instead of the browser's own box).
+// The question timer pauses while it's open and picks up where it left off on "No".
+let quitPending = null; // { onYes, resumeLeft }
+function askQuit(onYes) {
+  const running = !!timerFrame;
+  const resumeLeft = running ? Math.max(0, (timerEndAt - performance.now()) / 1000) : null;
+  stopTimer();
+  quitPending = { onYes, resumeLeft, total: timerTotal };
+  $('typing-input').blur();
+  $('answer-input').blur();
+  $('quit-modal').classList.remove('hidden');
+  sfx.open();
+}
+$('quit-yes').onclick = () => {
+  const q = quitPending;
+  quitPending = null;
+  $('quit-modal').classList.add('hidden');
+  if (q) q.onYes();
 };
+$('quit-no').onclick = () => {
+  const q = quitPending;
+  quitPending = null;
+  $('quit-modal').classList.add('hidden');
+  sfx.close();
+  if (q && q.resumeLeft !== null && quiz && !quiz.locked) startTimer(q.total, q.resumeLeft);
+  if (typing && !typing.locked) $('typing-input').focus();
+};
+
+$('quit-btn').onclick = () => askQuit(() => {
+  stopTimer();
+  quiz = null;
+  $('retry-intro').classList.add('hidden');
+  showLobby('play');
+});
 
 function finishQuiz() {
   const p = player();
@@ -1762,12 +1793,11 @@ function finishTyping() {
   announceBadges(p);
 }
 
-$('typing-quit').onclick = () => {
-  if (!confirm('Quit this typing test?')) return;
+$('typing-quit').onclick = () => askQuit(() => {
   typing = null;
   $('typing-cut').classList.add('hidden');
   showLobby('play');
-};
+});
 $('type-again').onclick = () => startCountdown(startTyping);
 $('type-lobby').onclick = () => showLobby('play');
 
