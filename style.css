@@ -1021,6 +1021,19 @@ body.easy-font .typing-text { letter-spacing: .06em; word-spacing: .12em; }
 .doc-cols { columns: 2; column-gap: 32px; }
 @media (max-width: 520px) { .doc-cols { columns: 1; } }
 
+/* ================= Contact us popup ================= */
+.contact-card { position: relative; max-width: 460px; display: flex; flex-direction: column; gap: 12px; }
+.contact-card h2 { margin: 0; }
+.contact-card .sub { margin: 0; }
+#contact-text {
+  font: inherit; font-size: 1.05rem; resize: vertical; min-height: 120px;
+  padding: 12px 14px; border-radius: 14px; outline: none;
+  border: 2px solid var(--green); background: var(--night); color: var(--text);
+}
+#contact-text:focus { border-color: var(--sage); }
+#contact-text.nudge { animation: shake .35s; border-color: #ff9a9a; }
+.contact-card .hint a { color: var(--sage); }
+
 /* ================= Quit popup ================= */
 .quit-card { border-color: var(--sage); }
 .quit-card h2 { margin-bottom: .3em; }

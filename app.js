@@ -2568,6 +2568,43 @@ document.addEventListener('animationend', (e) => {
   if (e.animationName === 'bounce') e.target.classList.remove('bounce');
 });
 
+// ---------- Contact us ----------
+// Opens a little message box; Send opens the email app with the message filled in.
+const CONTACT_EMAIL = 'asherndahl@gmail.com';
+document.addEventListener('click', (e) => {
+  const link = e.target.closest('.contact-link');
+  if (!link) return;
+  e.preventDefault();
+  $('contact-text').value = '';
+  $('contact-modal').classList.remove('hidden');
+  sfx.open();
+  $('contact-text').focus();
+});
+function contactMailto(text) {
+  const subject = encodeURIComponent('Message from Flashy');
+  const body = encodeURIComponent(`${text}\n\n(Sent from the Flashy website)`);
+  return `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+}
+function closeContact() {
+  $('contact-modal').classList.add('hidden');
+}
+$('contact-close').onclick = () => { closeContact(); sfx.close(); };
+$('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') closeContact(); });
+$('contact-send').onclick = () => {
+  const text = $('contact-text').value.trim();
+  if (!text) {
+    const box = $('contact-text');
+    box.classList.remove('nudge');
+    void box.offsetWidth;
+    box.classList.add('nudge');
+    box.focus();
+    return;
+  }
+  window.location.href = contactMailto(text);
+  closeContact();
+  showBanner('✉️', 'Your email app should open with your message. Just tap send!');
+};
+
 // ---------- Parents / Privacy pages ----------
 // Remember where you were, so "Back to Flashy" returns to the same tab and scroll spot.
 document.addEventListener('click', (e) => {
