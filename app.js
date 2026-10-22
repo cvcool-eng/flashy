@@ -1554,9 +1554,9 @@ function renderLobby() {
 $('start-course').onclick = () => showReady();
 
 // ---------- typing test ----------
-// 5 kid-friendly sentences. Untyped letters are faded, the current word has an
+// 10 kid-friendly sentences. Untyped letters are faded, the current word has an
 // outline, correct letters turn into normal text and wrong ones get a red tint.
-const TYPING_SENTENCES = 5;
+const TYPING_SENTENCES = 10;
 // gems: up to `gems` for the level (scaled by accuracy), plus a bonus for zero mistakes
 const TYPING_LEVELS = {
   easy:   { label: 'Easy',   sym: 'abc',  desc: 'Short and simple',         gems: 20 },
