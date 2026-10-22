@@ -1,8 +1,8 @@
 // Flashy service worker: lets the app open offline.
 // Site files are fetched fresh when online (so updates show up right away)
 // and served from the cache when offline.
-const CACHE = 'flashy-v2';
-const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'flashy-192.png', 'flashy-512.png'];
+const CACHE = 'flashy-v3';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'f-192.png', 'f-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
