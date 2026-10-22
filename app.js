@@ -1552,8 +1552,6 @@ function finishQuiz() {
   save();
   renderTopbar();
 
-  const stars = pct === 1 ? 3 : pct >= 0.8 ? 2 : pct >= 0.5 ? 1 : 0;
-  $('result-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
   $('result-title').textContent = perfect ? 'PERFECT!' : pct >= 0.8 ? 'Great job!' : pct >= 0.5 ? 'Nice work!' : 'Keep practicing!';
   $('result-score').textContent = score;
   $('result-total').textContent = total;
@@ -1818,8 +1816,6 @@ function finishTyping() {
   // 100% only with zero mistakes (so one slip never rounds up to "perfect")
   const raw = typing.keys ? ((typing.keys - typing.mistakes) / typing.keys) * 100 : 100;
   const acc = typing.mistakes ? Math.min(99, Math.round(raw)) : 100;
-  const stars = acc >= 95 ? 3 : acc >= 85 ? 2 : acc >= 70 ? 1 : 0;
-  $('type-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
   $('type-title').textContent = acc === 100 ? 'PERFECT!' : acc >= 90 ? 'Great typing!' : acc >= 75 ? 'Nice work!' : 'Keep practicing!';
   $('type-acc').textContent = `${acc}%`;
   const p = player();
