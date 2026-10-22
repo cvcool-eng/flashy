@@ -804,6 +804,39 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
 .editing-name { color: var(--sage); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 520px) { .login-card { margin-top: 60px; } }
 
+/* ================= Loading screen ================= */
+.splash {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(139, 187, 146, .16), transparent 50%),
+    var(--night);
+}
+.splash-text { display: flex; flex-direction: column; align-items: flex-start; }
+.splash-welcome {
+  font-size: clamp(1.3rem, 5vw, 1.9rem); font-weight: 600; color: var(--cream);
+  animation: splash-in .6s var(--spring) both;
+}
+.splash-name {
+  margin-left: 1.1em; margin-top: -.15em;
+  font-size: clamp(3.6rem, 16vw, 6rem); font-weight: 700; color: var(--sage); line-height: 1;
+  text-shadow: 0 6px 0 var(--green);
+  animation: splash-in .7s var(--spring) .12s both;
+}
+@keyframes splash-in { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; transform: none; } }
+.splash-spinner {
+  position: absolute; right: 24px; bottom: 24px; width: 30px; height: 30px; border-radius: 50%;
+  border: 4px solid rgba(139, 187, 146, .25); border-top-color: var(--sage);
+  animation: spin-ring .8s linear infinite;
+}
+@keyframes spin-ring { to { transform: rotate(360deg); } }
+.splash.leaving { animation: splash-drop .75s cubic-bezier(.5, -0.4, .7, .6) forwards; pointer-events: none; }
+@keyframes splash-drop {
+  0% { transform: translateY(0); }
+  25% { transform: translateY(-28px); }
+  100% { transform: translateY(110vh); }
+}
+
 /* ================= Lost streak popup ================= */
 .streak-card { border-color: #7fd3ff; }
 .lost-fire { width: 64px; height: 84px; display: block; margin: 0 auto 10px; animation: lost-sway 2.4s ease-in-out infinite; transform-origin: bottom center; }
