@@ -305,6 +305,9 @@ $('login-form').addEventListener('submit', (e) => {
 function showReady(afterSignIn = false) {
   const p = player();
   $('ready-details').textContent = `${GRADE_NAMES[p.grade]} · ${OPS[p.op].label} · ${QUESTIONS_PER_COURSE} questions`;
+  $('screen-ready').querySelector('.ready-title').textContent = afterSignIn
+    ? 'Do you wanna see what a course is like?'
+    : 'Are you ready to start the course?';
   $('ready-yes').textContent = afterSignIn ? "Sure, I'll try it!" : 'Yes!';
   $('ready-no').textContent = afterSignIn ? 'No, I wanna see the lobby!' : 'No, go back!';
   show('ready');
