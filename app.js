@@ -70,6 +70,7 @@ function newProfile(name, grade) {
     lastClaim: null, claimedDays: [], chestsOpened: 0,
     courses: 0, totalCorrect: 0, bestScore: 0,
     seenIntro: false,
+    lastWelcome: Date.now(), // no "welcome back" on the very first sign-in
   };
 }
 
@@ -265,6 +266,28 @@ function signInAs(key) {
   if (firstTime) showReady(true);
   else showLobby('play');
   maybeToast();
+  maybeWelcome();
+}
+
+// "Welcome back, Name! 👋" when someone returns after 12+ hours away.
+const WELCOME_AFTER_MS = 12 * 60 * 60 * 1000;
+let welcomeTimer = null;
+
+function maybeWelcome() {
+  const p = player();
+  if (!p) return;
+  const now = Date.now();
+  if (p.lastWelcome && now - p.lastWelcome < WELCOME_AFTER_MS) return;
+  p.lastWelcome = now;
+  save();
+  const box = $('welcome');
+  $('welcome-text').textContent = `Welcome back, ${p.name}!`;
+  box.classList.remove('hidden', 'leaving');
+  clearTimeout(welcomeTimer);
+  welcomeTimer = setTimeout(() => {
+    box.classList.add('leaving');
+    welcomeTimer = setTimeout(() => box.classList.add('hidden'), 300);
+  }, 3500);
 }
 
 // "I have an account!" lists every account saved on this device.
@@ -694,6 +717,11 @@ document.addEventListener('visibilitychange', () => {
   if (!quiz) maybeToast();
 });
 
+// Coming back to a tab left open counts too.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !quiz) maybeWelcome();
+});
+
 // ---------- bouncy clicks ----------
 // Every button springs when pressed; the class restarts the animation on each click.
 const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .path-arrow';
@@ -715,4 +743,5 @@ document.addEventListener('animationend', (e) => {
   touchStreak(p);
   showLobby('play');
   maybeToast();
+  maybeWelcome();
 })();

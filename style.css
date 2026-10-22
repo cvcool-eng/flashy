@@ -339,6 +339,28 @@ input:focus { border-color: var(--sage); }
 .stat .num { font-size: 1.9rem; font-weight: 700; color: var(--sage); }
 .stat .lbl { color: var(--muted); font-size: .9rem; }
 
+/* ---------- Welcome back ---------- */
+.welcome {
+  position: fixed; z-index: 35; top: 74px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  width: max-content; max-width: calc(100% - 32px);
+  padding: 14px 22px; border-radius: 20px;
+  background: var(--sage); color: var(--night);
+  font-size: 1.35rem; font-weight: 700;
+  box-shadow: 0 6px 0 var(--green), var(--shadow);
+  animation: welcome-in .4s var(--spring);
+}
+.welcome #welcome-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.welcome.leaving { animation: welcome-out .3s ease-in forwards; }
+.wave { font-size: 1.8rem; display: inline-block; transform-origin: 70% 80%; animation: wave 1.2s ease-in-out 2; }
+@keyframes wave {
+  0%, 60%, 100% { transform: rotate(0); }
+  10%, 30% { transform: rotate(18deg); }
+  20%, 40% { transform: rotate(-10deg); }
+}
+@keyframes welcome-in { from { opacity: 0; transform: translate(-50%, -30px) scale(.9); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes welcome-out { to { opacity: 0; transform: translate(-50%, -30px) scale(.9); } }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
