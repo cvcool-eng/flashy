@@ -331,11 +331,6 @@ input:focus { border-color: var(--sage); }
 .chest .chest-inside { opacity: 0; transition: opacity .2s; }
 .chest.open .chest-inside { opacity: 1; }
 
-.legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 14px; color: var(--muted); font-size: .9rem; }
-.dot { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: -1px; }
-.dot.claimed { background: var(--good); }
-.dot.ready { background: var(--gold); }
-.dot.missed { background: #556; }
 
 
 /* ---------- Stats ---------- */
