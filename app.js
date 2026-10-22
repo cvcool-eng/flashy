@@ -1590,7 +1590,8 @@ function finishQuiz() {
   });
 
   // course gems only for getting every question right (badges still give their own gems)
-  const courseGems = perfect ? score * 2 + 10 + quiz.comboGems : 0;
+  // 1 gem per correct answer; a perfect course gets double, plus the perfect and in-a-row bonuses
+  const courseGems = perfect ? score * 2 + 10 + quiz.comboGems : score;
   let gems = courseGems;
   p.gems += gems;
   p.gemsEarned += gems;
@@ -1622,7 +1623,9 @@ function finishQuiz() {
   }
   $('result-gems').textContent = perfect
     ? `You earned ${gems} gems (${parts.join(', ')})`
-    : 'No gems this time. Get every question right to earn gems!';
+    : gems
+      ? `You earned ${gems} gems (1 for each correct answer). Get every question right for double gems and a bonus!`
+      : 'Get some right next time to earn gems!';
 
   $('r-badges').innerHTML = newBadges.map((b) =>
     `<div class="new-badge"><span class="badge-ico">${b.icon}</span><span><strong>New badge: ${b.name}</strong><small>Claim ${BADGE_GEMS} gems for it in the Progress tab!</small></span></div>`).join('');
@@ -1914,7 +1917,9 @@ function finishTyping() {
   let note = '';
   if (run.kind === 'test') {
     $('type-title').textContent = acc === 100 ? 'PERFECT!' : acc >= 90 ? 'Great typing!' : acc >= 75 ? 'Nice work!' : 'Keep practicing!';
-    gems = perfect ? TYPING_LEVELS[run.level].gems : 0;
+    // full gems for 100%, half for 90%+, a quarter for 75%+
+    const full = TYPING_LEVELS[run.level].gems;
+    gems = perfect ? full : acc >= 90 ? Math.round(full / 2) : acc >= 75 ? Math.round(full / 4) : 0;
     typedoneActions = { again: () => showTypingReady(), lobby: () => showLobby('play') };
     $('type-again').textContent = 'Play again';
     $('type-lobby').textContent = 'Back to lobby';
@@ -1925,7 +1930,7 @@ function finishTyping() {
     if (!best || acc > best.acc || (acc === best.acc && wpm > best.wpm)) p.lessonBest[i] = { acc, wpm };
     const unlockedNew = passed && i === p.lessonUnlocked;
     if (unlockedNew) p.lessonUnlocked = i + 1;
-    gems = perfect ? LESSON_GEMS : 0;
+    gems = perfect ? LESSON_GEMS : passed ? LESSON_PASS_GEMS : 0;
     $('type-title').textContent = perfect ? 'PERFECT!' : passed ? 'Lesson passed!' : 'Almost there!';
     note = !passed ? `Get ${PASS_ACC * 100}% accuracy to pass this lesson. You can do it!`
       : i + 1 >= LESSONS.length ? 'You finished every typing lesson!'
@@ -1955,7 +1960,9 @@ function finishTyping() {
   $('type-note').classList.toggle('hidden', !note);
   $('type-gems').textContent = run.kind === 'placement' ? ''
     : perfect ? `You earned ${gems} gems for typing with no mistakes!`
-    : 'No gems this time. Type with no mistakes to earn gems!';
+    : gems ? `You earned ${gems} gems! Type with no mistakes to earn the most gems.`
+    : run.kind === 'lesson' ? 'Pass the lesson to earn gems!'
+    : 'Get 75% or more to earn gems!';
   sfx.chest();
   typing = null;
   show('typedone');
@@ -2019,7 +2026,8 @@ function showKey(ch) {
 // One or two new keys per lesson. Pass with 90% accuracy to unlock the next one.
 const PASS_ACC = 0.9;
 const MAX_WPM = 200; // faster than any kid (or most adults) really types
-const LESSON_GEMS = 10; // for a lesson with zero mistakes
+const LESSON_GEMS = 10;     // for a lesson with zero mistakes
+const LESSON_PASS_GEMS = 5; // for passing (90%+) with a few mistakes
 const LESSON_LINES = 3;
 const LESSONS = [
   { title: 'Home row: left hand', keys: 'asdf' },
