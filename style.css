@@ -33,6 +33,10 @@ body {
 
 .hidden { display: none !important; }
 
+/* hide the browser's scrollbar everywhere (pages still scroll normally) */
+html, body, * { scrollbar-width: none; }
+::-webkit-scrollbar { display: none; }
+
 /* No outline, highlight flash or text selection when tapping buttons and cards.
    Keyboard users still get a soft green ring. */
 * { -webkit-tap-highlight-color: transparent; }
