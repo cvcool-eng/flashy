@@ -258,14 +258,17 @@ $('login-form').addEventListener('submit', (e) => {
   touchStreak(data.profiles[key]);
   save();
   renderTopbar();
-  showReady();
+  showReady(true);
   maybeToast();
 });
 
 // ---------- ready + countdown ----------
-function showReady() {
+// The first time (right after signing in) the buttons are worded differently.
+function showReady(afterSignIn = false) {
   const p = player();
   $('ready-details').textContent = `${GRADE_NAMES[p.grade]} · ${OPS[p.op].label} · ${QUESTIONS_PER_COURSE} questions`;
+  $('ready-yes').textContent = afterSignIn ? "Sure, I'll try it!" : 'Yes!';
+  $('ready-no').textContent = afterSignIn ? 'No, I wanna see the lobby!' : 'No, go back!';
   show('ready');
 }
 
@@ -449,7 +452,7 @@ function finishQuiz() {
   show('results');
 }
 
-$('again-btn').onclick = showReady;
+$('again-btn').onclick = () => showReady();
 $('lobby-btn').onclick = () => showLobby('play');
 
 // ---------- lobby ----------
@@ -488,7 +491,7 @@ function renderLobby() {
   });
   renderTopbar();
 }
-$('start-course').onclick = showReady;
+$('start-course').onclick = () => showReady();
 
 function renderRewards() {
   const p = player();
