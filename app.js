@@ -1136,8 +1136,13 @@ $('pv-action').onclick = () => {
 
 // ---------- ready + countdown ----------
 // The first time (right after signing in) the buttons are worded differently.
+// The "ready?" screen is shared by math courses and typing tests.
+let readyFor = 'math';
+
 function showReady(afterSignIn = false) {
   const p = player();
+  readyFor = 'math';
+  $('mode-seg').classList.remove('hidden');
   if (!opsForGrade(p.grade).includes(p.op)) p.op = 'add';
   renderReadyDetails();
   $('screen-ready').querySelector('.ready-title').textContent = afterSignIn
@@ -1162,7 +1167,18 @@ $('mode-seg').addEventListener('click', (e) => {
   renderReadyDetails();
 });
 
-$('ready-yes').onclick = () => startCountdown(startQuiz);
+function showTypingReady() {
+  const level = TYPING_LEVELS[player().typingLevel] || TYPING_LEVELS.easy;
+  readyFor = 'typing';
+  $('mode-seg').classList.add('hidden');
+  $('ready-details').textContent = `${level.label} typing test · ${TYPING_SENTENCES} sentences`;
+  $('screen-ready').querySelector('.ready-title').textContent = 'Are you ready to start the typing test?';
+  $('ready-yes').textContent = 'Yes!';
+  $('ready-no').textContent = 'No, go back!';
+  show('ready');
+}
+
+$('ready-yes').onclick = () => startCountdown(readyFor === 'typing' ? startTyping : startQuiz);
 $('ready-no').onclick = () => showLobby('play');
 
 function startCountdown(next) {
@@ -1652,7 +1668,7 @@ $('typing-grid').addEventListener('click', (e) => {
   save();
   $('typing-grid').querySelectorAll('.type-card').forEach((x) => x.classList.toggle('selected', x === b));
 });
-$('start-typing').onclick = () => startCountdown(startTyping);
+$('start-typing').onclick = showTypingReady;
 
 let typing = null; // { sentences, i, typed, keys, mistakes, locked }
 
@@ -1798,7 +1814,7 @@ $('typing-quit').onclick = () => askQuit(() => {
   $('typing-cut').classList.add('hidden');
   showLobby('play');
 });
-$('type-again').onclick = () => startCountdown(startTyping);
+$('type-again').onclick = showTypingReady;
 $('type-lobby').onclick = () => showLobby('play');
 
 function renderRewards() {
