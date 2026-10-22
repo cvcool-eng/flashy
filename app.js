@@ -2585,13 +2585,50 @@ document.addEventListener('keydown', (e) => {
 });
 function leaveFlashy() {
   stopMusic();
+  $('bye-sub').classList.add('hidden');
   window.close(); // works in the installed app window; a normal tab can't close itself
   setTimeout(() => { $('bye').classList.remove('hidden'); }, 200);
 }
 $('bye-back').onclick = () => {
   $('bye').classList.add('hidden');
   updateMusic();
+  stayInFlashy();
 };
+
+// ---------- phone back button (the triangle on Android) ----------
+// Flashy keeps one extra history step, so the back button lands here first instead of
+// closing the app. It then acts like Esc: close a popup, leave a course (asks first),
+// go back to the main menu, or on the main menu ask "Are you sure you want to leave?".
+// After "Yes sorry", one more back press really closes Flashy.
+let atBackStep = false;
+function stayInFlashy() {
+  if (!atBackStep) return;
+  atBackStep = false;
+  history.pushState({ flashy: 'top' }, '');
+}
+history.replaceState({ flashy: 'base' }, '');
+history.pushState({ flashy: 'top' }, '');
+window.addEventListener('popstate', () => {
+  if (isOpen('bye')) return; // already said bye: let the next back press leave
+  atBackStep = true;
+  if (isOpen('quit-modal')) { $('quit-no').click(); stayInFlashy(); return; }
+  if (isOpen('profile-modal')) { closeProfile(); stayInFlashy(); return; }
+  if (isOpen('contact-modal')) { closeContact(); stayInFlashy(); return; }
+  if (isOpen('chest-modal') || isOpen('streak-modal')) { stayInFlashy(); return; }
+  if (quiz) { stayInFlashy(); $('quit-btn').click(); return; }
+  if (typing) { stayInFlashy(); $('typing-quit').click(); return; }
+  if (isOpen('screen-countdown')) { stayInFlashy(); return; }
+  if (isOpen('screen-login') && isOpen('accounts-view')) { stayInFlashy(); showLogin(); return; }
+  if (!isOpen('screen-lobby') && !isOpen('screen-login')) { stayInFlashy(); showLobby('play'); return; }
+  // main menu: ask before leaving; "Oops misclick!" puts the extra step back
+  askQuit(() => {
+    stopMusic();
+    $('bye-sub').classList.remove('hidden');
+    $('bye').classList.remove('hidden');
+  }, { title: 'Are you sure you want to leave?', sub: '', yes: 'Yes sorry', no: 'Oops misclick!' });
+});
+// any "no" on that popup (button, Esc) keeps Flashy open with its extra step
+$('quit-no').addEventListener('click', stayInFlashy);
 
 // ---------- full screen ----------
 // A button in the top bar, a switch in Settings, and F11 (which the installed app

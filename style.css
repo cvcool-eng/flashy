@@ -1034,6 +1034,7 @@ body.easy-font .typing-text { letter-spacing: .06em; word-spacing: .12em; }
 }
 .bye-text { display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; }
 .bye-text strong { font-size: clamp(1.8rem, 7vw, 2.6rem); color: var(--sage); }
+.bye-sub { color: var(--muted); font-size: 1rem; }
 .bye-wave { font-size: 3.5rem; animation: wave 1.2s ease-in-out 2; transform-origin: 70% 80%; }
 
 /* ================= Full screen button ================= */
