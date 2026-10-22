@@ -2604,15 +2604,23 @@ function contactMessage() {
 }
 // Gmail in the browser: works without any email app installed.
 function contactGmailUrl(text) {
-  const q = new URLSearchParams({ view: 'cm', fs: '1', to: CONTACT_EMAIL, su: 'Message from Flashy', body: `${text}\n\n(Sent from the Flashy website)` });
+  const q = new URLSearchParams({ view: 'cm', fs: '1', to: CONTACT_EMAIL, su: 'Message from Flashy', body: text ? `${text}\n\n(Sent from the Flashy website)` : '' });
   return `https://mail.google.com/mail/?${q}`;
 }
+// Asks first, then opens Gmail in a new tab. Google asks you to sign in if you aren't,
+// then shows the email ready to send (blank if you didn't type a message here).
 $('contact-gmail').onclick = () => {
-  const text = contactMessage();
-  if (!text) return;
-  window.open(contactGmailUrl(text), '_blank', 'noopener');
-  closeContact();
-  showBanner('✉️', 'Gmail opened in a new tab with your message. Just tap Send there!');
+  const text = $('contact-text').value.trim();
+  askQuit(() => {
+    window.open(contactGmailUrl(text), '_blank', 'noopener');
+    closeContact();
+    showBanner('✉️', text ? 'Gmail opened with your message. Just tap Send there!' : 'Gmail opened with a new email to us. Type your message and tap Send!');
+  }, {
+    title: 'Open Gmail?',
+    sub: "This opens the Gmail website in a new tab. If you're not signed in, Google will ask you to sign in first. Then your email will be ready to send.",
+    yes: 'Open Gmail',
+    no: 'Cancel',
+  });
 };
 $('contact-send').onclick = () => {
   const text = contactMessage();
