@@ -5,20 +5,38 @@ const STORE_KEY = 'flashy-math-v1';
 const QUESTIONS_PER_COURSE = 25;
 const FIRST_COURSE_QUESTIONS = 10; // an account's first finished course is shorter
 const courseLength = (p) => (p.courses === 0 ? FIRST_COURSE_QUESTIONS : QUESTIONS_PER_COURSE);
-const SECONDS_PER_QUESTION = 10;
+// Seconds per question by grade (K..8); harder subjects get a little extra.
+const TIMER_BY_GRADE = [15, 15, 12, 12, 10, 10, 12, 12, 12];
+const EXTRA_TIME = { frac: 5, dec: 3, pct: 5, eq: 5 };
+// 7th and 8th grade courses warm up with easier questions of the same type.
+const WARMUP_GRADES = [7, 8];
+const WARMUP_SHARE = 0.4;
 const MEGA_EVERY = 25;
 const MEGA_GEMS = 400;
+const COMBO_EVERY = 5;   // every 5 in a row...
+const COMBO_GEMS = 5;    // ...gives 5 bonus gems
+const BADGE_GEMS = 25;
+const FREEZE_PRICE = 150;
+const FREEZE_MAX = 2;
+const REVIEW_PER_COURSE = 3;  // missed questions brought back in the next course
+const REVIEW_KEEP = 10;
 
 const GRADES = ['K', '1', '2', '3', '4', '5', '6', '7', '8'];
 const GRADE_NAMES = ['Kindergarten', '1st grade', '2nd grade', '3rd grade', '4th grade', '5th grade', '6th grade', '7th grade', '8th grade'];
 
 const OPS = {
-  add: { sym: '+', label: 'Addition' },
-  sub: { sym: '−', label: 'Subtraction' },
-  mul: { sym: '×', label: 'Multiplication' },
-  div: { sym: '÷', label: 'Division' },
-  mix: { sym: '★', label: 'Mix it up' },
+  add:  { sym: '+', label: 'Addition', minGrade: 0 },
+  sub:  { sym: '−', label: 'Subtraction', minGrade: 0 },
+  mul:  { sym: '×', label: 'Multiplication', minGrade: 0 },
+  div:  { sym: '÷', label: 'Division', minGrade: 0 },
+  frac: { sym: '½', label: 'Fractions', minGrade: 5 },
+  dec:  { sym: '.5', label: 'Decimals', minGrade: 5 },
+  pct:  { sym: '%', label: 'Percents', minGrade: 6 },
+  eq:   { sym: 'x', label: 'Equations', minGrade: 6 },
+  mix:  { sym: '★', label: 'Mix it up', minGrade: 0 },
 };
+const opsForGrade = (g) => Object.keys(OPS).filter((k) => OPS[k].minGrade <= g);
+const mixPool = (g) => opsForGrade(g).filter((k) => k !== 'mix');
 
 // Streak fire colors: changes every 25 days, then keeps going.
 const FIRE_TIERS = [
@@ -31,13 +49,79 @@ const FIRE_TIERS = [
   { min: 200, name: 'White',  outer: '#dfe9ff', inner: '#ffffff', glow: '#ffffff' },
 ];
 
+// Avatars: square tiles in Flashy's greens with the face filling the tile.
+// The first six are free, the rest are unlocked with gems.
+const SAGE = ['#a3cfaa', '#6fa67a'];   // light green
+const GREEN = ['#3f9a74', '#226b4f'];  // mid green
+const TEAL = ['#1d6b64', '#0e3f3b'];   // deep teal
+const AVATARS = [
+  { id: 'fox',     name: 'Fox',     face: '🦊', bg: TEAL,  price: 0 },
+  { id: 'panda',   name: 'Panda',   face: '🐼', bg: GREEN, price: 0 },
+  { id: 'frog',    name: 'Frog',    face: '🐸', bg: TEAL,  price: 0 },
+  { id: 'cat',     name: 'Cat',     face: '🐱', bg: GREEN, price: 0 },
+  { id: 'dog',     name: 'Dog',     face: '🐶', bg: SAGE,  price: 0 },
+  { id: 'monkey',  name: 'Monkey',  face: '🐵', bg: SAGE,  price: 0 },
+  { id: 'bear',    name: 'Bear',    face: '🐻', bg: SAGE,  price: 100 },
+  { id: 'lion',    name: 'Lion',    face: '🦁', bg: TEAL,  price: 100 },
+  { id: 'koala',   name: 'Koala',   face: '🐨', bg: GREEN, price: 150 },
+  { id: 'tiger',   name: 'Tiger',   face: '🐯', bg: TEAL,  price: 150 },
+  { id: 'wolf',    name: 'Wolf',    face: '🐺', bg: SAGE,  price: 200 },
+  { id: 'owl',     name: 'Owl',     face: '🦉', bg: GREEN, price: 250 },
+  { id: 'pig',     name: 'Pig',     face: '🐷', bg: TEAL,  price: 250 },
+  { id: 'robot',   name: 'Robot',   face: '🤖', bg: TEAL,  price: 300 },
+  { id: 'unicorn', name: 'Unicorn', face: '🦄', bg: GREEN, price: 350 },
+  { id: 'alien',   name: 'Alien',   face: '👽', bg: TEAL,  price: 350 },
+  { id: 'dragon',  name: 'Dragon',  face: '🐲', bg: SAGE,  price: 450 },
+  { id: 'cool',    name: 'Cool Cat', face: '😎', bg: GREEN, price: 500 },
+];
+
+// Frames: the cooler they look, the more they cost. Looks live in style.css (.frame-<id>).
+const FRAMES = [
+  { id: 'none',      name: 'No frame',  price: 0 },
+  { id: 'classic',   name: 'Classic',   price: 0 },
+  { id: 'gold',      name: 'Gold',      price: 150 },
+  { id: 'ice',       name: 'Ice',       price: 300 },
+  { id: 'fire',      name: 'Fire',      price: 400 },
+  { id: 'neon',      name: 'Neon',      price: 600 },
+  { id: 'rainbow',   name: 'Rainbow',   price: 800 },
+  { id: 'galaxy',    name: 'Galaxy',    price: 1000 },
+  { id: 'lightning', name: 'Lightning', price: 1500 },
+];
+
+const BADGES = [
+  { id: 'first',     icon: '🎓', name: 'First Steps',   desc: 'Finish your first course',            test: (p) => p.courses >= 1 },
+  { id: 'perfect',   icon: '💯', name: 'Perfect!',      desc: 'Get every question right',            test: (p) => p.perfects >= 1 },
+  { id: 'combo10',   icon: '⚡', name: 'On a Roll',     desc: 'Get 10 right in a row',               test: (p) => p.bestCombo >= 10 },
+  { id: 'speedy',    icon: '🚀', name: 'Speedy',        desc: 'Average under 3 seconds with 80% right', test: (p) => p.speedy },
+  { id: 'courses10', icon: '📚', name: 'Bookworm',      desc: 'Finish 10 courses',                   test: (p) => p.courses >= 10 },
+  { id: 'courses50', icon: '🏆', name: 'Champion',      desc: 'Finish 50 courses',                   test: (p) => p.courses >= 50 },
+  { id: 'streak7',   icon: '🔥', name: 'Week Streak',   desc: 'Reach a 7 day streak',                test: (p) => p.bestStreak >= 7 },
+  { id: 'streak25',  icon: '💙', name: 'Blue Flame',    desc: 'Reach a 25 day streak',               test: (p) => p.bestStreak >= 25 },
+  { id: 'streak50',  icon: '💜', name: 'Unstoppable',   desc: 'Reach a 50 day streak',               test: (p) => p.bestStreak >= 50 },
+  { id: 'gems1000',  icon: '💎', name: 'Gem Collector', desc: 'Earn 1,000 gems',                     test: (p) => p.gemsEarned >= 1000 },
+  { id: 'style',     icon: '🎨', name: 'New Look',      desc: 'Unlock an avatar or frame',           test: (p) => p.purchases >= 1 },
+  { id: 'explorer',  icon: '🧭', name: 'Explorer',      desc: 'Try 4 different subjects',            test: (p) => Object.keys(p.subjectStats).length >= 4 },
+  ...['add', 'sub', 'mul', 'div'].map((op) => ({
+    id: `${op}100`, icon: OPS[op].sym, name: `${OPS[op].label} Ace`,
+    desc: `Get 100 ${OPS[op].label.toLowerCase()} questions right`,
+    test: (p) => (p.subjectStats[op] ? p.subjectStats[op].right : 0) >= 100,
+  })),
+];
+
+const GEM_SVG = '<svg viewBox="0 0 24 24" class="gem-icon" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="#7fe3ff"/><path d="M2 9h20L12 21z" fill="#3cb8e0"/></svg>';
+const LOCK_SVG = '<span class="lock" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="12" rx="3" fill="#f4f8f1"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#f4f8f1" stroke-width="2.6"/><circle cx="12" cy="16" r="2" fill="#12544F"/></svg></span>';
+const SOUND_ON_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const SOUND_OFF_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
 // ---------- helpers ----------
 const $ = (id) => document.getElementById(id);
 const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const randNonZero = (a, b) => { let n; do { n = rand(a, b); } while (n === 0); return n; };
-const shuffle = (arr) => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
-const fmt = (n) => (n < 0 ? '−' + Math.abs(n) : String(n));
+const pick = (arr) => arr[rand(0, arr.length - 1)];
+const fmt = (n) => { const s = String(Number(Number(n).toFixed(2))); return s.startsWith('-') ? '−' + s.slice(1) : s; };
 const fmtRight = (n) => (n < 0 ? `(${fmt(n)})` : fmt(n));
+const signed = (n) => (n < 0 ? `− ${-n}` : `+ ${n}`);
+const avatarById = (id) => AVATARS.find((a) => a.id === id) || AVATARS[0];
 
 function dayKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -49,37 +133,74 @@ function daysBetween(a, b) {
 }
 
 // ---------- saving ----------
+const FREE_AVATARS = AVATARS.filter((a) => !a.price).map((a) => a.id);
+const FREE_FRAMES = FRAMES.filter((f) => !f.price).map((f) => f.id);
+// If saved progress exists but can't be read, never save over it.
+let loadFailed = false;
 let data = load();
 
 function load() {
+  let raw = null;
   try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (e) { /* storage blocked: play without saving */ }
+    raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      Object.values(d.profiles || {}).forEach(upgradeProfile);
+      return d;
+    }
+  } catch (e) {
+    if (raw) loadFailed = true; // storage blocked or unreadable: play without saving
+  }
   return { current: null, profiles: {} };
 }
 function save() {
+  if (loadFailed) return;
   try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) { /* ignore */ }
 }
 function player() { return data.current ? data.profiles[data.current] : null; }
 
-function newProfile(name, grade) {
-  return {
+function newProfile(name, grade, avatar = 'fox') {
+  return upgradeProfile({
     name, grade, op: 'add', gems: 0,
     streak: 0, bestStreak: 0, lastVisit: null,
     lastClaim: null, claimedDays: [], chestsOpened: 0,
     courses: 0, totalCorrect: 0, bestScore: 0,
     seenIntro: false,
     lastWelcome: Date.now(), // no "welcome back" on the very first sign-in
+    avatar, gemsEarned: 0,
+  });
+}
+
+// Fill in anything an older saved profile doesn't have yet.
+function upgradeProfile(p) {
+  const defaults = {
+    avatar: 'fox', frame: 'classic',
+    ownedAvatars: [...FREE_AVATARS], ownedFrames: [...FREE_FRAMES],
+    freezes: 0, subjectStats: {}, daily: {}, badges: [],
+    bestCombo: 0, perfects: 0, purchases: 0, speedy: false,
+    gemsEarned: p.gems || 0, reviewQueue: [],
   };
+  Object.entries(defaults).forEach(([k, v]) => { if (p[k] === undefined) p[k] = v; });
+  // everyone always owns the free ones, and unknown picks fall back to a free one
+  FREE_AVATARS.forEach((id) => { if (!p.ownedAvatars.includes(id)) p.ownedAvatars.push(id); });
+  FREE_FRAMES.forEach((id) => { if (!p.ownedFrames.includes(id)) p.ownedFrames.push(id); });
+  if (!AVATARS.some((a) => a.id === p.avatar)) p.avatar = 'fox';
+  if (!FRAMES.some((f) => f.id === p.frame)) p.frame = 'classic';
+  return p;
 }
 
 // Count a visit for today and update the day streak.
+// Streak freezes cover missed days so the streak keeps going.
+let freezeNotice = 0;
 function touchStreak(p) {
   const today = dayKey();
   if (p.lastVisit === today) return;
   const gap = p.lastVisit ? daysBetween(p.lastVisit, today) : null;
   if (gap === 1) {
+    p.streak += 1;
+  } else if (gap > 1 && gap - 1 <= p.freezes) {
+    p.freezes -= gap - 1;
+    freezeNotice = gap - 1;
     p.streak += 1;
   } else {
     p.streak = 1;
@@ -93,6 +214,60 @@ function touchStreak(p) {
 const canClaim = (p) => p.lastClaim !== dayKey();
 const isMegaDay = (day) => day % MEGA_EVERY === 0;
 const fireTier = (streak) => [...FIRE_TIERS].reverse().find((t) => streak >= t.min);
+
+// ---------- sounds (made with Web Audio, no files) ----------
+let actx = null;
+const soundOn = () => data.sound !== false;
+function audio() {
+  if (!soundOn()) return null;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  } catch (e) { return null; }
+}
+function tone(freq, dur, { type = 'sine', vol = 0.12, at = 0, slide = 0 } = {}) {
+  const ctx = audio();
+  if (!ctx) return;
+  const t = ctx.currentTime + at;
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+const sfx = {
+  right: () => { tone(660, 0.12, { type: 'triangle' }); tone(990, 0.18, { type: 'triangle', at: 0.09 }); },
+  wrong: () => tone(220, 0.28, { type: 'sawtooth', vol: 0.05, slide: 0.7 }),
+  tick: () => tone(1200, 0.04, { type: 'square', vol: 0.03 }),
+  count: () => tone(520, 0.15, { type: 'triangle' }),
+  go: () => tone(780, 0.3, { type: 'triangle' }),
+  combo: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, { type: 'triangle', at: i * 0.07 })),
+  shake: () => tone(140, 0.08, { type: 'square', vol: 0.03 }),
+  chest: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, { type: 'triangle', at: i * 0.06, vol: 0.1 })),
+  buy: () => { tone(880, 0.1); tone(1320, 0.2, { at: 0.08 }); },
+  badge: () => [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.18, { at: i * 0.09, vol: 0.1 })),
+};
+
+function setSound(on) {
+  data.sound = on;
+  save();
+  renderSoundControls();
+}
+function renderSoundControls() {
+  $('quiz-sound').innerHTML = soundOn() ? SOUND_ON_SVG : SOUND_OFF_SVG;
+  $('quiz-sound').setAttribute('aria-label', soundOn() ? 'Turn sound off' : 'Turn sound on');
+  $('sound-switch').classList.toggle('on', soundOn());
+  $('sound-switch').setAttribute('aria-checked', String(soundOn()));
+}
+$('quiz-sound').onclick = () => setSound(!soundOn());
+$('sound-switch').onclick = () => setSound(!soundOn());
 
 // ---------- question generator ----------
 // Each grade returns [first number, second number] for the operation.
@@ -144,32 +319,113 @@ const LEVELS = {
   ],
 };
 
-function makeQuestion(op, grade) {
-  if (op === 'mix') op = ['add', 'sub', 'mul', 'div'][rand(0, 3)];
-  const [x, y] = LEVELS[op][grade]();
+// Warm-up versions for 7th/8th grade: still negative numbers, just smaller.
+const WARMUP_LEVELS = {
+  add: () => [rand(-10, 10), rand(-10, 10)],
+  sub: () => [rand(-10, 10), rand(-10, 10)],
+  mul: () => [rand(-6, 6), rand(-6, 6)],
+  div: () => [randNonZero(-6, 6), rand(-6, 6)],
+};
+
+function basicQuestion(op, grade, easy) {
+  const [x, y] = easy ? WARMUP_LEVELS[op]() : LEVELS[op][grade]();
   let a, b, answer;
   if (op === 'add') { a = x; b = y; answer = a + b; }
   if (op === 'sub') { a = x; b = y; answer = a - b; }
   if (op === 'mul') { a = x; b = y; answer = a * b; }
   if (op === 'div') { b = x; answer = y; a = b * y; }
-  const text = `${fmt(a)} ${OPS[op].sym} ${fmtRight(b)}`;
-  return { text, answer };
+  return { text: `${fmt(a)} ${OPS[op].sym} ${fmtRight(b)}`, answer };
 }
 
-function makeCourse(op, grade, count) {
+// Fractions, decimals, percents and equations. Answers are always typed as plain numbers.
+// `easy` means "warm-up": the same kind of question as one grade lower.
+const EXTRA_GEN = {
+  frac(g, easy) {
+    const lvl = easy ? g - 1 : g;
+    const kind = pick(lvl <= 5 ? ['add', 'unit'] : lvl === 6 ? ['add', 'sub', 'of'] : ['sub', 'of', 'equiv', 'add']);
+    if (kind === 'add' || kind === 'sub') {
+      const d = rand(3, 12);
+      let a = rand(1, d - 1), b = rand(1, d - 1);
+      if (kind === 'sub' && a < b) [a, b] = [b, a];
+      return kind === 'add'
+        ? { text: `${a}/${d} + ${b}/${d}`, ask: `= ? / ${d}`, answer: a + b }
+        : { text: `${a}/${d} − ${b}/${d}`, ask: `= ? / ${d}`, answer: a - b };
+    }
+    if (kind === 'unit') { const d = pick([2, 3, 4, 5, 10]); const k = rand(2, 10); return { text: `1/${d} of ${d * k}`, answer: k }; }
+    if (kind === 'of') { const d = rand(2, 10), n = rand(1, d - 1), k = rand(2, 12); return { text: `${n}/${d} of ${d * k}`, answer: n * k }; }
+    const b = rand(2, 9), a = rand(1, b - 1), m = rand(2, 6);
+    return { text: `${a}/${b} = ? / ${b * m}`, ask: 'What goes in the ?', answer: a * m };
+  },
+  dec(g, easy) {
+    const lvl = easy ? g - 1 : g;
+    const kind = pick(lvl <= 5 ? ['add1', 'sub1'] : lvl === 6 ? ['add2', 'sub2', 'add1'] : lvl === 7 ? ['add2', 'sub2', 'mul'] : ['add2', 'sub2', 'mul', 'div']);
+    if (kind === 'add1' || kind === 'sub1' || kind === 'add2' || kind === 'sub2') {
+      const two = kind.endsWith('2');
+      const scale = two ? 100 : 10;
+      let x = two ? rand(100, 999) : rand(1, 99), y = two ? rand(10, 999) : rand(1, 99);
+      const plus = kind.startsWith('add');
+      if (!plus && x < y) [x, y] = [y, x];
+      return { text: `${fmt(x / scale)} ${plus ? '+' : '−'} ${fmt(y / scale)}`, answer: (plus ? x + y : x - y) / scale, decimal: true };
+    }
+    if (kind === 'mul') { const x = rand(2, 50), k = rand(2, 9); return { text: `${fmt(x / 10)} × ${k}`, answer: (x * k) / 10, decimal: true }; }
+    const a = rand(2, 50), b = rand(2, 9);
+    return { text: `${fmt((a * b) / 10)} ÷ ${b}`, answer: a / 10, decimal: true };
+  },
+  pct(g, easy) {
+    const pcts = g === 6 || easy ? [10, 20, 25, 50, 75] : [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 80];
+    const p = pick(pcts), base = 20 * rand(1, 10), part = (base * p) / 100;
+    if (g >= 8 && !easy && rand(0, 1)) return { text: `${part} out of ${base}`, ask: '= ? %', answer: p };
+    return { text: `${p}% of ${base}`, answer: part };
+  },
+  eq(g, easy) {
+    const neg = g >= 7;
+    const kind = pick(g === 6 ? ['plus', 'minus'] : easy ? ['plus', 'minus', 'times'] : g === 7 ? ['plus', 'minus', 'times', 'over'] : ['times', 'two', 'two', 'minus']);
+    const a = kind === 'times' || kind === 'over' || kind === 'two' ? rand(2, 9) : rand(1, easy ? 10 : 20);
+    if (kind === 'plus') { const x = neg ? rand(easy ? -5 : -10, 15) : rand(0, 20); return { text: `x + ${a} = ${fmt(x + a)}`, ask: 'x = ?', answer: x }; }
+    if (kind === 'minus') { const x = neg ? rand(easy ? -5 : -10, 15) : rand(a, a + 20); return { text: `x − ${a} = ${fmt(x - a)}`, ask: 'x = ?', answer: x }; }
+    if (kind === 'times') { const x = neg ? randNonZero(easy ? -6 : -12, easy ? 6 : 12) : rand(1, 12); return { text: `${a}x = ${fmt(a * x)}`, ask: 'x = ?', answer: x }; }
+    if (kind === 'over') { const x = rand(-10, 12); return { text: `x ÷ ${a} = ${fmt(x)}`, ask: 'x = ?', answer: x * a }; }
+    const b = randNonZero(-20, 20), x = rand(-10, 12);
+    return { text: `${a}x ${signed(b)} = ${fmt(a * x + b)}`, ask: 'x = ?', answer: x };
+  },
+};
+
+function makeQuestion(op, grade, easy = false) {
+  if (op === 'mix') op = pick(mixPool(grade));
+  const q = OPS[op].minGrade > 0 ? EXTRA_GEN[op](grade, easy) : basicQuestion(op, grade, easy);
+  q.op = op;
+  q.ask = q.ask || '= ?';
+  q.decimal = !!q.decimal;
+  q.time = TIMER_BY_GRADE[grade] + (EXTRA_TIME[op] || 0);
+  return q;
+}
+
+// A course: warm-up questions first for 7th/8th grade, plus a few
+// "review" questions this player missed last time (if they fit the subject).
+function makeCourse(p, count) {
   const qs = [];
   const seen = new Set();
+  const warmup = WARMUP_GRADES.includes(p.grade) ? Math.round(count * WARMUP_SHARE) : 0;
   let tries = 0;
   while (qs.length < count) {
-    const q = makeQuestion(op, grade);
-    if (seen.has(q.text) && tries++ < 300) continue; // avoid repeats when possible
-    seen.add(q.text);
+    const q = makeQuestion(p.op, p.grade, qs.length < warmup);
+    const key = q.text + q.ask;
+    if (seen.has(key) && tries++ < 300) continue; // avoid repeats when possible
+    seen.add(key);
     qs.push(q);
   }
+  const reviews = p.reviewQueue
+    .filter((q) => (p.op === 'mix' ? mixPool(p.grade).includes(q.op) : q.op === p.op) && !seen.has(q.text + q.ask))
+    .slice(0, Math.min(REVIEW_PER_COURSE, count - warmup));
+  reviews.forEach((q) => {
+    // swap a review question into a random spot after the warm-up
+    const spot = rand(warmup, count - 1);
+    qs[spot] = { ...q, review: true, time: TIMER_BY_GRADE[p.grade] + (EXTRA_TIME[q.op] || 0) };
+  });
   return qs;
 }
 
-// ---------- SVG pieces ----------
+// ---------- SVG / HTML pieces ----------
 // Chunky, rounded chest. The lid is its own group so CSS can swing it open.
 function chestSVG({ open = false } = {}) {
   const c = { body: '#d9822b', dark: '#a85d17', lid: '#f0a040', trim: '#ffd23f', trimDark: '#d39b12', inside: '#5b2e0c' };
@@ -198,6 +454,11 @@ function chestSVG({ open = false } = {}) {
   </svg>`;
 }
 
+function avatarHTML(avatarId, frameId, size) {
+  const a = avatarById(avatarId);
+  return `<span class="av frame-${frameId}" style="--size:${size}px"><span class="av-face" style="background:linear-gradient(135deg, ${a.bg[0]}, ${a.bg[1]})">${a.face}</span></span>`;
+}
+
 // ---------- screens ----------
 const SCREENS = ['login', 'ready', 'countdown', 'quiz', 'results', 'lobby'];
 function show(name) {
@@ -212,6 +473,7 @@ function renderTopbar() {
   if (!p) return;
   $('gem-count').textContent = p.gems.toLocaleString();
   $('player-name').textContent = p.name;
+  $('top-avatar').innerHTML = avatarHTML(p.avatar, p.frame, 30);
   $('streak-count').textContent = p.streak;
   const t = fireTier(p.streak);
   const fire = $('fire');
@@ -239,18 +501,97 @@ function gradeButtons(container, selected, onPick) {
   });
 }
 
+// ---------- banners (welcome back, badges, streak freeze) ----------
+const bannerQueue = [];
+let bannerBusy = false;
+
+function showBanner(icon, text, { wave = false } = {}) {
+  bannerQueue.push({ icon, text, wave });
+  if (!bannerBusy) nextBanner();
+}
+function nextBanner() {
+  const b = bannerQueue.shift();
+  if (!b) { bannerBusy = false; return; }
+  bannerBusy = true;
+  const box = $('welcome');
+  $('banner-icon').textContent = b.icon;
+  $('banner-icon').classList.toggle('waving', b.wave);
+  $('welcome-text').textContent = b.text;
+  box.classList.remove('hidden', 'leaving');
+  void box.offsetWidth;
+  setTimeout(() => {
+    box.classList.add('leaving');
+    setTimeout(() => { box.classList.add('hidden'); nextBanner(); }, 300);
+  }, 3200);
+}
+
+// "Welcome back, Name! 👋" when someone returns after 12+ hours away.
+const WELCOME_AFTER_MS = 12 * 60 * 60 * 1000;
+
+function maybeWelcome() {
+  const p = player();
+  if (!p) return;
+  const now = Date.now();
+  if (p.lastWelcome && now - p.lastWelcome < WELCOME_AFTER_MS) return;
+  p.lastWelcome = now;
+  save();
+  showBanner('👋', `Welcome back, ${p.name}!`, { wave: true });
+}
+
+function announceFreeze() {
+  if (!freezeNotice) return;
+  showBanner('❄️', `Your streak freeze saved your ${player().streak} day streak!`);
+  freezeNotice = 0;
+}
+
+// ---------- badges ----------
+function checkBadges(p) {
+  const earned = BADGES.filter((b) => !p.badges.includes(b.id) && b.test(p));
+  earned.forEach((b) => {
+    p.badges.push(b.id);
+    p.gems += BADGE_GEMS;
+    p.gemsEarned += BADGE_GEMS;
+  });
+  if (earned.length) save();
+  return earned;
+}
+// Badges earned outside of a course (streaks, unlocking things) pop up as banners.
+function announceBadges(p) {
+  const earned = checkBadges(p);
+  if (!earned.length) return;
+  sfx.badge();
+  earned.forEach((b) => showBanner(b.icon, `Badge unlocked: ${b.name}! +${BADGE_GEMS} gems`));
+  renderTopbar();
+}
+
 // ---------- login ----------
 let loginGrade = null;
+let loginAvatar = FREE_AVATARS[0];
 
 function showLogin() {
   loginGrade = null;
+  loginAvatar = FREE_AVATARS[0];
   $('name-input').value = '';
   gradeButtons($('login-grades'), -1, (g) => { loginGrade = g; });
+  renderLoginAvatars();
   $('login-form').classList.remove('hidden');
   $('accounts-view').classList.add('hidden');
   show('login');
   $('name-input').focus();
 }
+
+function renderLoginAvatars() {
+  $('login-avatars').innerHTML = FREE_AVATARS.map((id) => `
+    <button type="button" class="avatar-choice${id === loginAvatar ? ' selected' : ''}" data-id="${id}" aria-label="${avatarById(id).name}">
+      ${avatarHTML(id, 'none', 52)}
+    </button>`).join('');
+}
+$('login-avatars').addEventListener('click', (e) => {
+  const b = e.target.closest('.avatar-choice');
+  if (!b) return;
+  loginAvatar = b.dataset.id;
+  renderLoginAvatars();
+});
 
 // Sign in to an account. Only an account's very first sign-in gets the
 // "see what a course is like?" prompt; after that it goes to the lobby.
@@ -267,27 +608,8 @@ function signInAs(key) {
   else showLobby('play');
   maybeToast();
   maybeWelcome();
-}
-
-// "Welcome back, Name! 👋" when someone returns after 12+ hours away.
-const WELCOME_AFTER_MS = 12 * 60 * 60 * 1000;
-let welcomeTimer = null;
-
-function maybeWelcome() {
-  const p = player();
-  if (!p) return;
-  const now = Date.now();
-  if (p.lastWelcome && now - p.lastWelcome < WELCOME_AFTER_MS) return;
-  p.lastWelcome = now;
-  save();
-  const box = $('welcome');
-  $('welcome-text').textContent = `Welcome back, ${p.name}!`;
-  box.classList.remove('hidden', 'leaving');
-  clearTimeout(welcomeTimer);
-  welcomeTimer = setTimeout(() => {
-    box.classList.add('leaving');
-    welcomeTimer = setTimeout(() => box.classList.add('hidden'), 300);
-  }, 3500);
+  announceFreeze();
+  announceBadges(p);
 }
 
 // "I have an account!" lists every account saved on this device.
@@ -297,7 +619,7 @@ function showAccounts() {
   list.innerHTML = profiles.length
     ? profiles.map(([key, p]) => `
       <button type="button" class="account-item" data-key="${key}">
-        <span class="avatar">${p.name.charAt(0).toUpperCase()}</span>
+        ${avatarHTML(p.avatar, p.frame, 50)}
         <span class="account-info">
           <strong></strong>
           <small>${GRADE_NAMES[p.grade]} · ${p.streak} day streak · ${p.gems.toLocaleString()} gems</small>
@@ -322,15 +644,112 @@ $('login-form').addEventListener('submit', (e) => {
   if (!name) return;
   if (loginGrade === null) { alert('Please pick your grade!'); return; }
   const key = name.toLowerCase();
-  if (!data.profiles[key]) data.profiles[key] = newProfile(name, loginGrade);
+  if (!data.profiles[key]) data.profiles[key] = newProfile(name, loginGrade, loginAvatar);
   data.profiles[key].grade = loginGrade;
   signInAs(key);
 });
+
+// ---------- profile: avatars + frames ----------
+// Tap your avatar/name (top right) to try on, unlock and use avatars and frames.
+let locker = null; // { kind: 'avatar'|'frame', avatar, frame, focus: {kind, id} }
+
+function openProfile() {
+  const p = player();
+  if (!p) return;
+  locker = { kind: 'avatar', avatar: p.avatar, frame: p.frame, focus: { kind: 'avatar', id: p.avatar } };
+  renderProfile();
+  $('profile-modal').classList.remove('hidden');
+}
+function closeProfile() {
+  $('profile-modal').classList.add('hidden');
+  locker = null;
+  renderTopbar();
+}
+
+function renderProfile() {
+  const p = player();
+  $('pv-avatar').innerHTML = avatarHTML(locker.avatar, locker.frame, 104);
+  $('pv-name').textContent = p.name;
+  $('pv-sub').textContent = `${GRADE_NAMES[p.grade]} · ${p.badges.length} badges`;
+  $('pv-gems').textContent = p.gems.toLocaleString();
+  document.querySelectorAll('#profile-seg button').forEach((b) => b.classList.toggle('active', b.dataset.kind === locker.kind));
+
+  const isAvatar = locker.kind === 'avatar';
+  const items = isAvatar ? AVATARS : FRAMES;
+  const owned = isAvatar ? p.ownedAvatars : p.ownedFrames;
+  const using = isAvatar ? p.avatar : p.frame;
+  $('item-grid').innerHTML = items.map((it) => {
+    const has = owned.includes(it.id);
+    const sel = locker.focus.kind === locker.kind && locker.focus.id === it.id;
+    const face = isAvatar ? avatarHTML(it.id, 'none', 58) : avatarHTML(locker.avatar, it.id, 58);
+    const tag = !has ? `<span class="item-price">${GEM_SVG}${it.price}</span>`
+      : it.id === using ? '<span class="item-tag on">Using</span>'
+      : '<span class="item-tag">Owned</span>';
+    return `<button type="button" class="item${has ? '' : ' locked'}${sel ? ' selected' : ''}" data-id="${it.id}">
+      <span class="item-face">${face}${has ? '' : LOCK_SVG}</span>
+      <span class="item-name">${it.name}</span>${tag}
+    </button>`;
+  }).join('');
+
+  // the button under the preview acts on the item you last tapped
+  const f = locker.focus;
+  const item = (f.kind === 'avatar' ? AVATARS : FRAMES).find((x) => x.id === f.id);
+  const has = (f.kind === 'avatar' ? p.ownedAvatars : p.ownedFrames).includes(f.id);
+  const isOn = (f.kind === 'avatar' ? p.avatar : p.frame) === f.id;
+  $('pv-item-name').textContent = f.kind === 'frame' && f.id !== 'none' ? `${item.name} frame` : item.name;
+  const btn = $('pv-action');
+  btn.disabled = false;
+  if (isOn) { btn.textContent = 'Using it ✓'; btn.disabled = true; }
+  else if (has) btn.textContent = 'Use it';
+  else if (p.gems >= item.price) btn.textContent = `Unlock for ${item.price} gems`;
+  else { btn.textContent = `Need ${item.price - p.gems} more gems`; btn.disabled = true; }
+}
+
+$('top-profile').onclick = openProfile;
+$('profile-close').onclick = closeProfile;
+$('profile-modal').addEventListener('click', (e) => { if (e.target.id === 'profile-modal') closeProfile(); });
+$('profile-seg').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b || !locker) return;
+  locker.kind = b.dataset.kind;
+  renderProfile();
+});
+$('item-grid').addEventListener('click', (e) => {
+  const b = e.target.closest('.item');
+  if (!b || !locker) return;
+  const id = b.dataset.id;
+  if (locker.kind === 'avatar') locker.avatar = id; else locker.frame = id;
+  locker.focus = { kind: locker.kind, id };
+  renderProfile();
+});
+$('pv-action').onclick = () => {
+  const p = player();
+  const { kind, id } = locker.focus;
+  const item = (kind === 'avatar' ? AVATARS : FRAMES).find((x) => x.id === id);
+  const owned = kind === 'avatar' ? p.ownedAvatars : p.ownedFrames;
+  if (!owned.includes(id)) {
+    if (p.gems < item.price) return;
+    p.gems -= item.price;
+    p.purchases += 1;
+    owned.push(id);
+    sfx.buy();
+    const pv = $('pv-avatar');
+    pv.classList.remove('unlocked');
+    void pv.offsetWidth;
+    pv.classList.add('unlocked');
+  }
+  if (kind === 'avatar') p.avatar = id; else p.frame = id;
+  save();
+  renderTopbar();
+  renderProfile();
+  announceBadges(p);
+};
 
 // ---------- ready + countdown ----------
 // The first time (right after signing in) the buttons are worded differently.
 function showReady(afterSignIn = false) {
   const p = player();
+  if (!opsForGrade(p.grade).includes(p.op)) p.op = 'add';
   $('ready-details').textContent = `${GRADE_NAMES[p.grade]} · ${OPS[p.op].label} · ${courseLength(p)} questions`;
   $('screen-ready').querySelector('.ready-title').textContent = afterSignIn
     ? 'Do you wanna see what a course is like?'
@@ -354,6 +773,7 @@ function startCountdown() {
     el.classList.remove('pop');
     void el.offsetWidth; // restart the animation
     el.classList.add('pop');
+    if (steps[i] === 'Go!') sfx.go(); else sfx.count();
     i++;
     setTimeout(tick, i === steps.length ? 600 : 900);
   };
@@ -361,26 +781,43 @@ function startCountdown() {
 }
 
 // ---------- quiz ----------
+// phase 'main' is the scored course; phase 'retry' is the second chance at
+// missed questions, which never changes the score.
 let quiz = null;
 
 function startQuiz() {
   const p = player();
-  quiz = { qs: makeCourse(p.op, p.grade, courseLength(p)), i: 0, correct: 0, locked: false };
-  buildKeypad();
+  const qs = makeCourse(p, courseLength(p));
+  quiz = {
+    main: qs, list: qs, phase: 'main', i: 0, correct: 0, locked: false,
+    results: [], wrong: [], fixed: 0, combo: 0, bestCombo: 0, comboGems: 0, qStart: 0,
+  };
+  renderSoundControls();
   show('quiz');
   renderQuestion();
 }
 
 function renderQuestion() {
-  const q = quiz.qs[quiz.i];
+  const q = quiz.list[quiz.i];
+  const retry = quiz.phase === 'retry';
   const card = $('flashcard');
   card.classList.remove('right', 'wrong', 'flip');
   void card.offsetWidth;
   card.classList.add('flip');
   $('question').textContent = q.text;
-  $('q-count').textContent = `${quiz.i + 1} / ${quiz.qs.length}`;
-  $('progress-fill').style.width = `${(quiz.i / quiz.qs.length) * 100}%`;
-  $('score-now').textContent = quiz.correct;
+  $('question').classList.toggle('long', q.text.length > 10);
+  $('ask').textContent = q.ask;
+  // a tag on the card for questions they missed before
+  const tag = $('review-tag');
+  tag.classList.toggle('hidden', !(retry || q.review));
+  tag.textContent = retry ? 'Second chance' : 'Review question';
+  $('screen-quiz').querySelector('.quiz-wrap').classList.toggle('retry', retry);
+  $('q-count').textContent = retry ? `Retry ${quiz.i + 1} / ${quiz.list.length}` : `${quiz.i + 1} / ${quiz.list.length}`;
+  $('progress-fill').style.width = `${(quiz.i / quiz.list.length) * 100}%`;
+  $('score-line').innerHTML = retry
+    ? 'Fix the ones you missed! These don\'t change your score.'
+    : `Correct: <strong>${quiz.correct}</strong>`;
+  buildKeypad(q);
   const input = $('answer-input');
   input.value = '';
   input.className = 'answer-input';
@@ -389,21 +826,32 @@ function renderQuestion() {
   $('feedback').className = 'feedback';
   quiz.locked = false;
   input.focus();
-  startTimer();
+  quiz.qStart = performance.now();
+  startTimer(q.time);
 }
 
-// Only digits (and a leading minus sign from 6th grade, where answers can be negative).
+// Only numbers: digits, a leading minus from 6th grade, and a decimal point for decimal questions.
 const allowMinus = () => player() && player().grade >= 6;
+const currentQ = () => (quiz ? quiz.list[quiz.i] : null);
 function cleanNumber(text) {
+  const q = currentQ();
   const neg = allowMinus() && /^\s*[-−]/.test(text);
-  const digits = text.replace(/\D/g, '').slice(0, 6);
-  return (neg ? '-' : '') + digits;
+  let s;
+  if (q && q.decimal) {
+    s = text.replace(/[^\d.]/g, '');
+    const dot = s.indexOf('.');
+    s = dot < 0 ? s.slice(0, 6) : s.slice(0, dot).slice(0, 6) + '.' + s.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+  } else {
+    s = text.replace(/\D/g, '').slice(0, 6);
+  }
+  return (neg ? '-' : '') + s;
 }
 
-function buildKeypad() {
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', allowMinus() ? '±' : '', '0', '⌫'];
+function buildKeypad(q) {
+  const special = q.decimal ? '.' : allowMinus() ? '±' : '';
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', special, '0', '⌫'];
   $('keypad').innerHTML = keys.map((k) => k
-    ? `<button type="button" class="key${k === '⌫' || k === '±' ? ' fn' : ''}" data-key="${k}">${k === '±' ? '+/−' : k}</button>`
+    ? `<button type="button" class="key${k === '⌫' || k === '±' || k === '.' ? ' fn' : ''}" data-key="${k}">${k === '±' ? '+/−' : k}</button>`
     : '<span></span>').join('');
 }
 
@@ -420,7 +868,9 @@ $('keypad').addEventListener('click', (e) => {
 
 $('answer-input').addEventListener('beforeinput', (e) => {
   // block letters and symbols before they ever show up
-  if (e.data && !/^[0-9]+$/.test(e.data) && !(allowMinus() && /^[-−]$/.test(e.data))) e.preventDefault();
+  const q = currentQ();
+  const ok = /^[0-9]+$/.test(e.data || '') || (allowMinus() && /^[-−]$/.test(e.data)) || (q && q.decimal && e.data === '.');
+  if (e.data && !ok) e.preventDefault();
 });
 $('answer-input').addEventListener('input', (e) => {
   const clean = cleanNumber(e.target.value);
@@ -431,7 +881,7 @@ $('answer-form').addEventListener('submit', (e) => {
   e.preventDefault();
   if (!quiz || quiz.locked) return;
   const input = $('answer-input');
-  if (input.value === '' || input.value === '-') {
+  if (input.value === '' || Number.isNaN(Number(input.value))) {
     input.classList.remove('nudge');
     void input.offsetWidth;
     input.classList.add('nudge');
@@ -445,40 +895,102 @@ $('answer-form').addEventListener('submit', (e) => {
 function checkAnswer(value) {
   quiz.locked = true;
   stopTimer();
+  const p = player();
   const input = $('answer-input');
-  const q = quiz.qs[quiz.i];
-  const ok = value !== null && Number(value) === q.answer;
-  if (ok) quiz.correct++;
+  const q = quiz.list[quiz.i];
+  const ok = value !== null && Math.abs(Number(value) - q.answer) < 1e-6;
+  const seconds = Math.min(q.time, (performance.now() - quiz.qStart) / 1000);
+
+  if (quiz.phase === 'main') {
+    quiz.results.push({ q, ok, seconds });
+    const st = p.subjectStats[q.op] || (p.subjectStats[q.op] = { right: 0, total: 0 });
+    st.total += 1;
+    if (ok) st.right += 1;
+    const today = dayKey();
+    p.daily[today] = (p.daily[today] || 0) + 1;
+    if (ok) {
+      quiz.correct++;
+      quiz.combo++;
+      quiz.bestCombo = Math.max(quiz.bestCombo, quiz.combo);
+      if (q.review) p.reviewQueue = p.reviewQueue.filter((r) => r.text + r.ask !== q.text + q.ask);
+      if (quiz.combo % COMBO_EVERY === 0) {
+        quiz.comboGems += COMBO_GEMS;
+        comboPop(`${quiz.combo} in a row!`, `+${COMBO_GEMS} gems`);
+      }
+    } else {
+      quiz.combo = 0;
+      quiz.wrong.push(q);
+    }
+    save();
+  } else if (ok) {
+    quiz.fixed++;
+  }
+
+  if (ok) sfx.right(); else sfx.wrong();
   input.disabled = true;
   input.classList.add(ok ? 'right' : 'wrong');
   $('flashcard').classList.add(ok ? 'right' : 'wrong');
   const fb = $('feedback');
   fb.className = 'feedback show ' + (ok ? 'good' : 'bad');
+  const answerText = q.ask.includes('?') ? q.ask.replace('?', fmt(q.answer)) : `= ${fmt(q.answer)}`;
   fb.textContent = ok ? ['Correct!', 'Nice!', 'You got it!', 'Awesome!'][rand(0, 3)]
-    : value === null ? `Time's up! The answer is ${fmt(q.answer)}`
-    : `The answer is ${fmt(q.answer)}`;
-  $('score-now').textContent = quiz.correct;
+    : value === null ? `Time's up! ${answerText}`
+    : `Not quite! ${answerText}`;
+  if (quiz.phase === 'main') $('score-line').innerHTML = `Correct: <strong>${quiz.correct}</strong>`;
   const current = quiz;
   setTimeout(() => {
     if (quiz !== current) return; // they quit meanwhile
-    quiz.i++;
-    if (quiz.i >= quiz.qs.length) finishQuiz();
-    else renderQuestion();
-  }, ok ? 800 : 1700);
+    nextQuestion();
+  }, ok ? 800 : 1800);
 }
 
-// ---------- 10 second timer ----------
+function nextQuestion() {
+  quiz.i++;
+  if (quiz.i < quiz.list.length) { renderQuestion(); return; }
+  if (quiz.phase === 'main' && quiz.wrong.length) { startRetry(); return; }
+  finishQuiz();
+}
+
+function startRetry() {
+  quiz.phase = 'retry';
+  quiz.list = quiz.wrong.map((q) => ({ ...q }));
+  quiz.i = 0;
+  const n = quiz.list.length;
+  $('retry-sub').textContent = `Let's try the ${n === 1 ? 'one' : n} you missed again.`;
+  $('retry-intro').classList.remove('hidden');
+  sfx.combo();
+  const current = quiz;
+  setTimeout(() => {
+    $('retry-intro').classList.add('hidden');
+    if (quiz === current) renderQuestion();
+  }, 2200);
+}
+
+function comboPop(big, small) {
+  const el = $('combo-pop');
+  el.innerHTML = `<strong>${big}</strong><span>${small}</span>`;
+  el.classList.remove('hidden', 'go');
+  void el.offsetWidth;
+  el.classList.add('go');
+  sfx.combo();
+}
+$('combo-pop').addEventListener('animationend', () => $('combo-pop').classList.add('hidden'));
+
+// ---------- question timer ----------
 let timerFrame = null;
 
-function startTimer() {
+function startTimer(seconds) {
   stopTimer();
-  const end = performance.now() + SECONDS_PER_QUESTION * 1000;
+  const total = seconds * 1000;
+  const end = performance.now() + total;
+  let lastSec = seconds;
   const tick = (now) => {
     const left = Math.max(0, end - now);
-    const frac = left / (SECONDS_PER_QUESTION * 1000);
-    $('timer-fill').style.width = `${frac * 100}%`;
-    $('timer-num').textContent = Math.ceil(left / 1000);
+    const sec = Math.ceil(left / 1000);
+    $('timer-fill').style.width = `${(left / total) * 100}%`;
+    $('timer-num').textContent = sec;
     $('timer').classList.toggle('hurry', left <= 3000);
+    if (sec !== lastSec) { lastSec = sec; if (sec > 0 && sec <= 3) sfx.tick(); }
     if (left <= 0) { timerFrame = null; if (quiz && !quiz.locked) checkAnswer(null); return; }
     timerFrame = requestAnimationFrame(tick);
   };
@@ -494,32 +1006,74 @@ $('quit-btn').onclick = () => {
   if (confirm('Quit this course? Your progress in this course will be lost.')) {
     stopTimer();
     quiz = null;
+    $('retry-intro').classList.add('hidden');
     showLobby('play');
   }
 };
 
 function finishQuiz() {
   const p = player();
+  const { results } = quiz;
   const score = quiz.correct;
-  const total = quiz.qs.length;
+  const total = quiz.main.length;
+  const pct = score / total;
   const perfect = score === total;
-  const gems = score * 2 + (perfect ? 10 : 0);
+  const times = results.map((r) => r.seconds);
+  const avg = times.reduce((s, t) => s + t, 0) / times.length;
+
+  // every missed question comes back as a "Review question" in a later course
+  quiz.wrong.forEach((q) => {
+    const key = q.text + q.ask;
+    p.reviewQueue = [{ text: q.text, ask: q.ask, answer: q.answer, op: q.op, decimal: q.decimal },
+      ...p.reviewQueue.filter((r) => r.text + r.ask !== key)].slice(0, REVIEW_KEEP);
+  });
+
+  let gems = score * 2 + (perfect ? 10 : 0) + quiz.comboGems;
   p.gems += gems;
+  p.gemsEarned += gems;
   p.courses += 1;
   p.totalCorrect += score;
+  if (perfect) p.perfects += 1;
+  p.bestCombo = Math.max(p.bestCombo, quiz.bestCombo);
+  if (avg < 3 && pct >= 0.8) p.speedy = true;
   // best score is out of a full 25-question course
   if (total === QUESTIONS_PER_COURSE) p.bestScore = Math.max(p.bestScore, score);
+  const newBadges = checkBadges(p);
+  gems += newBadges.length * BADGE_GEMS;
   save();
   renderTopbar();
-  quiz = null;
 
-  const pct = score / total;
-  $('result-total').textContent = total;
   const stars = pct === 1 ? 3 : pct >= 0.8 ? 2 : pct >= 0.5 ? 1 : 0;
   $('result-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
   $('result-title').textContent = perfect ? 'PERFECT!' : pct >= 0.8 ? 'Great job!' : pct >= 0.5 ? 'Nice work!' : 'Keep practicing!';
   $('result-score').textContent = score;
-  $('result-gems').textContent = `You earned ${gems} gems${perfect ? ' (includes +10 perfect bonus!)' : ''}`;
+  $('result-total').textContent = total;
+  $('r-acc').textContent = `${Math.round(pct * 100)}%`;
+  $('r-avg').textContent = `${avg.toFixed(1)}s`;
+  $('r-combo').textContent = quiz.bestCombo;
+  $('r-retry').textContent = quiz.wrong.length
+    ? `Second chance: you fixed ${quiz.fixed} of ${quiz.wrong.length} you missed.`
+    : 'No mistakes, so no second chance needed!';
+
+  const parts = [`${score * 2} for correct answers`];
+  if (perfect) parts.push('10 perfect bonus');
+  if (quiz.comboGems) parts.push(`${quiz.comboGems} for streaks in a row`);
+  if (newBadges.length) parts.push(`${newBadges.length * BADGE_GEMS} for new badges`);
+  $('result-gems').textContent = `You earned ${gems} gems (${parts.join(', ')})`;
+
+  $('r-badges').innerHTML = newBadges.map((b) =>
+    `<div class="new-badge"><span class="badge-ico">${b.icon}</span><span><strong>New badge: ${b.name}</strong><small>${b.desc}</small></span></div>`).join('');
+  if (newBadges.length) setTimeout(sfx.badge, 400);
+
+  $('r-times').innerHTML = results.map((r, i) =>
+    `<span class="tchip ${r.ok ? 'ok' : 'bad'}" title="Question ${i + 1}: ${r.q.text} (${r.ok ? 'right' : 'missed'})"><b>${i + 1}</b>${r.seconds.toFixed(1)}s</span>`).join('');
+  $('r-missed-wrap').classList.toggle('hidden', !quiz.wrong.length);
+  $('r-missed').innerHTML = quiz.wrong.map((q) => {
+    const ans = q.ask.includes('?') ? q.ask.replace('?', fmt(q.answer)) : `= ${fmt(q.answer)}`;
+    return `<div class="missed"><span>${q.text}</span><strong>${ans}</strong></div>`;
+  }).join('');
+
+  quiz = null;
   show('results');
 }
 
@@ -547,9 +1101,12 @@ document.querySelectorAll('.tab').forEach((t) => { t.onclick = () => switchTab(t
 
 function renderLobby() {
   const p = player();
+  const available = opsForGrade(p.grade);
+  if (!available.includes(p.op)) p.op = 'add';
   const grid = $('op-grid');
   grid.innerHTML = '';
-  Object.entries(OPS).forEach(([key, o]) => {
+  available.forEach((key) => {
+    const o = OPS[key];
     const b = document.createElement('button');
     b.className = 'op-card' + (p.op === key ? ' selected' : '');
     b.innerHTML = `<span class="sym">${o.sym}</span><span class="lbl">${o.label}</span>`;
@@ -593,7 +1150,24 @@ function renderRewards() {
     track.appendChild(node);
   }
   if (focus) track.scrollLeft = focus.offsetLeft - track.clientWidth / 2 + focus.offsetWidth / 2;
+
+  // streak freeze
+  $('freeze-count').textContent = `You have ${p.freezes} of ${FREEZE_MAX}.`;
+  const buy = $('buy-freeze');
+  buy.disabled = p.freezes >= FREEZE_MAX || p.gems < FREEZE_PRICE;
+  buy.innerHTML = p.freezes >= FREEZE_MAX ? 'Full' : `${GEM_SVG} ${FREEZE_PRICE}`;
 }
+
+$('buy-freeze').onclick = () => {
+  const p = player();
+  if (p.freezes >= FREEZE_MAX || p.gems < FREEZE_PRICE) return;
+  p.gems -= FREEZE_PRICE;
+  p.freezes += 1;
+  save();
+  sfx.buy();
+  renderTopbar();
+  renderRewards();
+};
 
 function claimChest() {
   const p = player();
@@ -601,6 +1175,7 @@ function claimChest() {
   const mega = isMegaDay(p.streak);
   const gems = mega ? MEGA_GEMS : rand(20, 200);
   p.gems += gems;
+  p.gemsEarned += gems;
   p.lastClaim = dayKey();
   p.claimedDays.push(p.streak);
   p.chestsOpened += 1;
@@ -628,9 +1203,11 @@ $('chest-stage').onclick = () => {
   const big = stage.classList.contains('big') ? ' big' : '';
   $('chest-hint').classList.add('hidden');
   stage.className = 'chest-stage shaking' + big;
+  [0, 250, 500, 750, 950].forEach((t) => setTimeout(sfx.shake, t));
   setTimeout(() => {
     stage.className = 'chest-stage opened' + big;
     $('chest-big').querySelector('svg').classList.add('open');
+    sfx.chest();
     spawnBurst();
     countUp($('chest-reward'), chestOpening.gems);
     renderTopbar();
@@ -671,8 +1248,10 @@ $('chest-ok').onclick = () => {
   chestOpening = null;
   $('chest-modal').classList.add('hidden');
   if (!$('screen-lobby').classList.contains('hidden')) renderRewards();
+  announceBadges(player());
 };
 
+// ---------- progress tab ----------
 function renderStats() {
   const p = player();
   const stats = [
@@ -682,10 +1261,58 @@ function renderStats() {
     ['Courses finished', p.courses],
     ['Correct answers', p.totalCorrect],
     ['Best score', `${p.bestScore} / ${QUESTIONS_PER_COURSE}`],
+    ['Best in a row', p.bestCombo],
     ['Chests opened', p.chestsOpened],
-    ['Grade', GRADE_NAMES[p.grade]],
   ];
   $('stat-grid').innerHTML = stats.map(([l, n]) => `<div class="stat"><div class="num">${n}</div><div class="lbl">${l}</div></div>`).join('');
+
+  $('badge-count').textContent = `${p.badges.length} of ${BADGES.length}`;
+  $('badge-grid').innerHTML = BADGES.map((b) => {
+    const has = p.badges.includes(b.id);
+    return `<div class="badge-card${has ? ' earned' : ''}" title="${b.desc}">
+      <span class="badge-ico">${b.icon}</span><strong>${b.name}</strong><small>${b.desc}</small></div>`;
+  }).join('');
+
+  renderParent(p);
+  renderSoundControls();
+  renderInstall();
+}
+
+// Parent view: accuracy per subject, and how much was practiced each day this week.
+function renderParent(p) {
+  const rows = Object.keys(OPS)
+    .filter((k) => k !== 'mix' && p.subjectStats[k] && p.subjectStats[k].total)
+    .map((k) => { const s = p.subjectStats[k]; return { k, right: s.right, total: s.total, pct: Math.round((100 * s.right) / s.total) }; });
+  let html = '<div class="parent-card"><h4>Accuracy by subject</h4>';
+  if (!rows.length) {
+    html += '<p class="sub">Finish a course to see how each subject is going.</p>';
+  } else {
+    html += rows.map((r) => `
+      <div class="acc-row" title="${OPS[r.k].label}: ${r.right} of ${r.total} right (${r.pct}%)">
+        <span class="acc-label">${OPS[r.k].label}</span>
+        <span class="acc-track"><span class="acc-fill" style="width:${Math.max(r.pct, 2)}%"></span></span>
+        <span class="acc-val">${r.pct}%</span>
+      </div>`).join('');
+    const weak = rows.filter((r) => r.total >= 10).sort((a, b) => a.pct - b.pct)[0];
+    if (weak && weak.pct < 90) html += `<p class="parent-note">Needs the most practice: <strong>${OPS[weak.k].label}</strong> (${weak.pct}% right)</p>`;
+  }
+  html += '</div>';
+
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push({ label: i === 0 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' }), n: p.daily[dayKey(d)] || 0 });
+  }
+  const max = Math.max(1, ...days.map((d) => d.n));
+  const week = days.reduce((s, d) => s + d.n, 0);
+  html += `<div class="parent-card"><h4>Questions answered, last 7 days <span class="muted">${week} total</span></h4>
+    <div class="week-chart">${days.map((d) => `
+      <div class="day-col" title="${d.label}: ${d.n} questions">
+        <span class="day-plot"><span class="day-val">${d.n || ''}</span><span class="day-bar" style="height:${d.n ? Math.max(4, (d.n / max) * 100) : 0}%"></span></span>
+        <span class="day-lbl">${d.label}</span>
+      </div>`).join('')}</div></div>`;
+  $('parent-view').innerHTML = html;
 }
 
 $('logout-btn').onclick = () => {
@@ -693,6 +1320,33 @@ $('logout-btn').onclick = () => {
   save();
   showLogin();
 };
+
+// ---------- install as an app ----------
+let installEvent = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installEvent = e;
+  renderInstall();
+});
+function renderInstall() {
+  const installed = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  $('install-btn').classList.toggle('hidden', !installEvent || installed);
+  $('install-note').textContent = installed ? 'Flashy is installed on this device.'
+    : installEvent ? 'Install Flashy as an app'
+    : ios ? 'On iPhone or iPad: tap Share, then "Add to Home Screen".'
+    : 'To install: use the install icon in your browser\'s address bar.';
+}
+$('install-btn').onclick = async () => {
+  if (!installEvent) return;
+  installEvent.prompt();
+  await installEvent.userChoice;
+  installEvent = null;
+  renderInstall();
+};
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => { /* offline support is optional */ });
+}
 
 // ---------- toast ----------
 function maybeToast() {
@@ -710,21 +1364,20 @@ $('toast-claim').onclick = () => {
 // If the tab stays open past midnight, count the new day when they come back.
 document.addEventListener('visibilitychange', () => {
   const p = player();
-  if (document.visibilityState !== 'visible' || !p || p.lastVisit === dayKey()) return;
-  touchStreak(p);
-  renderTopbar();
-  if (!$('screen-lobby').classList.contains('hidden')) renderLobby();
-  if (!quiz) maybeToast();
-});
-
-// Coming back to a tab left open counts too.
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && !quiz) maybeWelcome();
+  if (document.visibilityState !== 'visible' || !p) return;
+  if (p.lastVisit !== dayKey()) {
+    touchStreak(p);
+    renderTopbar();
+    if (!$('screen-lobby').classList.contains('hidden')) renderLobby();
+    if (!quiz) maybeToast();
+    announceFreeze();
+  }
+  if (!quiz) maybeWelcome();
 });
 
 // ---------- bouncy clicks ----------
 // Every button springs when pressed; the class restarts the animation on each click.
-const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .path-arrow';
+const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .path-arrow, .item, .avatar-choice, .seg button';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(BOUNCY);
   if (!el || el.disabled) return;
@@ -744,4 +1397,6 @@ document.addEventListener('animationend', (e) => {
   showLobby('play');
   maybeToast();
   maybeWelcome();
+  announceFreeze();
+  announceBadges(p);
 })();

@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Flashy</title>
+  <meta name="theme-color" content="#12544F">
+  <meta name="description" content="Math flash cards for Kindergarten through 8th grade">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Flashy">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,7 +18,7 @@
 </head>
 <body>
 
-  <!-- Top bar: gems, name, streak fire -->
+  <!-- Top bar: gems, avatar + name + streak fire (tap to open your profile) -->
   <header id="topbar" class="topbar hidden">
     <div class="brand">Flashy</div>
     <div class="topbar-right">
@@ -19,7 +26,8 @@
         <svg viewBox="0 0 24 24" class="gem-icon" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="#7fe3ff"/><path d="M2 9h20L12 21z" fill="#3cb8e0"/><path d="M8 3l4 6 4-6" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.2"/></svg>
         <span id="gem-count">0</span>
       </div>
-      <div class="pill player">
+      <button class="pill player" id="top-profile" aria-label="Your profile: avatar and frame">
+        <span id="top-avatar" class="top-avatar"></span>
         <span id="player-name">Player</span>
         <span class="streak" id="streak-wrap" title="Day streak">
           <svg viewBox="0 0 24 32" class="fire" id="fire" aria-hidden="true">
@@ -28,7 +36,7 @@
           </svg>
           <span id="streak-count">0</span>
         </span>
-      </div>
+      </button>
     </div>
   </header>
 
@@ -45,6 +53,9 @@
           <input id="name-input" maxlength="16" placeholder="Type your name" required>
           <label>Your grade</label>
           <div class="grade-grid" id="login-grades"></div>
+          <label>Pick your avatar</label>
+          <div class="avatar-pick" id="login-avatars"></div>
+          <p class="hint">You can unlock more avatars and frames with gems later!</p>
           <button type="submit" class="btn primary big">Let's go!</button>
           <button type="button" class="btn ghost big" id="have-account">I have an account!</button>
         </form>
@@ -80,32 +91,55 @@
           <button class="btn ghost small" id="quit-btn">✕ Quit</button>
           <div class="progress"><div class="progress-fill" id="progress-fill"></div></div>
           <div class="q-count" id="q-count">1 / 25</div>
+          <button class="icon-btn" id="quiz-sound" aria-label="Turn sound off"></button>
         </div>
         <div class="timer" id="timer">
           <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
           <span class="timer-num" id="timer-num">10</span>
         </div>
         <div class="flashcard" id="flashcard">
+          <span class="review-tag hidden" id="review-tag">Review question</span>
           <div class="question" id="question">7 × 8</div>
-          <div class="equals">= ?</div>
+          <div class="equals" id="ask">= ?</div>
         </div>
+        <div class="combo-pop hidden" id="combo-pop"></div>
         <form class="answer-row" id="answer-form" autocomplete="off">
-          <input id="answer-input" class="answer-input" inputmode="none" maxlength="7" placeholder="?" aria-label="Your answer">
+          <input id="answer-input" class="answer-input" inputmode="none" maxlength="10" placeholder="?" aria-label="Your answer">
           <button type="submit" class="btn primary big" id="check-btn">Check</button>
         </form>
         <div class="feedback" id="feedback">&nbsp;</div>
         <div class="keypad" id="keypad"></div>
-        <div class="score-line">Correct: <strong id="score-now">0</strong></div>
+        <div class="score-line" id="score-line">Correct: <strong>0</strong></div>
+      </div>
+      <div class="retry-intro hidden" id="retry-intro">
+        <div class="retry-card">
+          <div class="retry-title">Second chance!</div>
+          <div class="retry-sub" id="retry-sub"></div>
+          <small>These won't change your score.</small>
+        </div>
       </div>
     </section>
 
     <!-- RESULTS -->
     <section id="screen-results" class="screen hidden">
-      <div class="card center-card">
+      <div class="card center-card results-card">
         <div class="stars" id="result-stars"></div>
         <h1 id="result-title">Great job!</h1>
         <p class="result-score"><span id="result-score">0</span> / <span id="result-total">25</span> correct</p>
-        <p class="sub" id="result-gems"></p>
+        <div class="result-stats">
+          <div class="rstat"><b id="r-acc">0%</b><span>Accuracy</span></div>
+          <div class="rstat"><b id="r-avg">0s</b><span>Avg. per question</span></div>
+          <div class="rstat"><b id="r-combo">0</b><span>Best in a row</span></div>
+        </div>
+        <p class="sub" id="r-retry"></p>
+        <p class="gems-line" id="result-gems"></p>
+        <div id="r-badges"></div>
+        <h3>Time on each question</h3>
+        <div class="time-chips" id="r-times"></div>
+        <div id="r-missed-wrap">
+          <h3>Keep practicing these</h3>
+          <div class="missed-list" id="r-missed"></div>
+        </div>
         <div class="btn-row">
           <button class="btn primary big" id="again-btn">Play again</button>
           <button class="btn ghost big" id="lobby-btn">Back to lobby</button>
@@ -130,11 +164,34 @@
           <div class="chest-path" id="chest-track"></div>
           <button class="path-arrow right" id="path-right" aria-label="Scroll right">›</button>
         </div>
+        <div class="freeze-card">
+          <span class="freeze-ico" aria-hidden="true">❄️</span>
+          <span class="freeze-info">
+            <strong>Streak freeze</strong>
+            <small>Keeps your streak safe if you miss a day. <span id="freeze-count"></span></small>
+          </span>
+          <button class="btn primary small" id="buy-freeze"></button>
+        </div>
       </div>
 
       <div class="tab-panel hidden" id="tab-stats">
         <h2>My progress</h2>
         <div class="stat-grid" id="stat-grid"></div>
+        <h3>Badges <small class="muted" id="badge-count"></small></h3>
+        <div class="badge-grid" id="badge-grid"></div>
+        <h3>For parents</h3>
+        <div class="parent" id="parent-view"></div>
+        <h3>Settings</h3>
+        <div class="settings">
+          <div class="setting-row">
+            <span>Sound effects</span>
+            <button class="switch" id="sound-switch" role="switch" aria-checked="true" aria-label="Sound effects"><span></span></button>
+          </div>
+          <div class="setting-row">
+            <span id="install-note">Install Flashy as an app</span>
+            <button class="btn primary small hidden" id="install-btn">Install</button>
+          </div>
+        </div>
         <button class="btn ghost" id="logout-btn">Log Out</button>
       </div>
 
@@ -146,9 +203,9 @@
     </section>
   </main>
 
-  <!-- Welcome back banner -->
+  <!-- Banner: welcome back, badges, streak freeze -->
   <div class="welcome hidden" id="welcome" role="status">
-    <span class="wave" aria-hidden="true">👋</span>
+    <span class="banner-icon" id="banner-icon" aria-hidden="true">👋</span>
     <span id="welcome-text">Welcome back!</span>
   </div>
 
@@ -157,6 +214,33 @@
     <span>🎁 You have a daily chest to claim!</span>
     <button class="btn primary small" id="toast-claim">Open</button>
     <button class="toast-x" id="toast-close" aria-label="Dismiss">✕</button>
+  </div>
+
+  <!-- Profile: avatars and frames -->
+  <div class="modal hidden" id="profile-modal">
+    <div class="modal-card profile-card" role="dialog" aria-label="Your profile">
+      <button class="modal-x" id="profile-close" aria-label="Close">✕</button>
+      <div class="profile-top">
+        <span class="pv-avatar" id="pv-avatar"></span>
+        <div class="pv-info">
+          <h2 id="pv-name">Name</h2>
+          <p class="sub" id="pv-sub"></p>
+          <span class="pill gems small-pill">
+            <svg viewBox="0 0 24 24" class="gem-icon" aria-hidden="true"><path d="M6 3h12l4 6-10 12L2 9z" fill="#7fe3ff"/><path d="M2 9h20L12 21z" fill="#3cb8e0"/></svg>
+            <span id="pv-gems">0</span>
+          </span>
+        </div>
+      </div>
+      <div class="pv-action-row">
+        <strong id="pv-item-name"></strong>
+        <button class="btn primary" id="pv-action">Use it</button>
+      </div>
+      <div class="seg" id="profile-seg">
+        <button type="button" data-kind="avatar" class="active">Avatars</button>
+        <button type="button" data-kind="frame">Frames</button>
+      </div>
+      <div class="item-grid" id="item-grid"></div>
+    </div>
   </div>
 
   <!-- Chest opening modal -->
