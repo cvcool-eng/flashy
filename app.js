@@ -1341,7 +1341,7 @@ function checkAnswer(value) {
       if (q.review) p.reviewQueue = p.reviewQueue.filter((r) => r.text + r.ask !== q.text + q.ask);
       if (quiz.combo % COMBO_EVERY === 0) {
         quiz.comboGems += COMBO_GEMS;
-        comboPop(`${quiz.combo} in a row!`, `+${COMBO_GEMS} gems`);
+        comboPop(`${quiz.combo} in a row!`, quiz.wrong.length ? 'Keep it up!' : `+${COMBO_GEMS} gems if perfect`);
       }
     } else {
       quiz.combo = 0;
@@ -1459,7 +1459,9 @@ function finishQuiz() {
       ...p.reviewQueue.filter((r) => r.text + r.ask !== key)].slice(0, REVIEW_KEEP);
   });
 
-  let gems = score * 2 + (perfect ? 10 : 0) + quiz.comboGems;
+  // course gems only for getting every question right (badges still give their own gems)
+  const courseGems = perfect ? score * 2 + 10 + quiz.comboGems : 0;
+  let gems = courseGems;
   p.gems += gems;
   p.gemsEarned += gems;
   p.courses += 1;
@@ -1486,11 +1488,15 @@ function finishQuiz() {
     ? `Second chance: you fixed ${quiz.fixed} of ${quiz.wrong.length} you missed.`
     : 'No mistakes, so no second chance needed!';
 
-  const parts = [`${score * 2} for correct answers`];
-  if (perfect) parts.push('10 perfect bonus');
-  if (quiz.comboGems) parts.push(`${quiz.comboGems} for streaks in a row`);
+  const parts = [];
+  if (perfect) {
+    parts.push(`${score * 2} for correct answers`, '10 perfect bonus');
+    if (quiz.comboGems) parts.push(`${quiz.comboGems} for streaks in a row`);
+  }
   if (newBadges.length) parts.push(`${newBadges.length * BADGE_GEMS} for new badges`);
-  $('result-gems').textContent = `You earned ${gems} gems (${parts.join(', ')})`;
+  $('result-gems').textContent = perfect || newBadges.length
+    ? `You earned ${gems} gems (${parts.join(', ')})${perfect ? '' : '. Get every question right to earn course gems!'}`
+    : 'No gems this time. Get every question right to earn gems!';
 
   $('r-badges').innerHTML = newBadges.map((b) =>
     `<div class="new-badge"><span class="badge-ico">${b.icon}</span><span><strong>New badge: ${b.name}</strong><small>${b.desc}</small></span></div>`).join('');
@@ -1557,13 +1563,12 @@ $('start-course').onclick = () => showReady();
 // 10 kid-friendly sentences. Untyped letters are faded, the current word has an
 // outline, correct letters turn into normal text and wrong ones get a red tint.
 const TYPING_SENTENCES = 10;
-// gems: up to `gems` for the level (scaled by accuracy), plus a bonus for zero mistakes
+// gems are only for 100% accuracy (zero mistakes); Easy gives less
 const TYPING_LEVELS = {
-  easy:   { label: 'Easy',   sym: 'abc',  desc: 'Short and simple',         gems: 20 },
-  medium: { label: 'Medium', sym: 'Abc.', desc: 'Capitals and periods',     gems: 30 },
-  hard:   { label: 'Hard',   sym: 'Abc!', desc: 'Longer, with punctuation', gems: 40 },
+  easy:   { label: 'Easy',   sym: 'abc',  desc: 'Short and simple',         gems: 15 },
+  medium: { label: 'Medium', sym: 'Abc.', desc: 'Capitals and periods',     gems: 40 },
+  hard:   { label: 'Hard',   sym: 'Abc!', desc: 'Longer, with punctuation', gems: 50 },
 };
-const TYPING_PERFECT_GEMS = 10;
 const SENTENCES = {
   easy: [
     'i like to read books', 'the cat is on the mat', 'we can play at the park',
@@ -1688,9 +1693,9 @@ $('typing-card').addEventListener('click', () => $('typing-input').focus());
 
 function finishSentence() {
   typing.locked = true;
-  $('typing-progress').style.width = `${((typing.i + 1) / TYPING_SENTENCES) * 100}%`;
+  $('typing-progress').style.width = `${((typing.i + 1) / typing.sentences.length) * 100}%`;
   const current = typing;
-  const last = typing.i + 1 >= TYPING_SENTENCES;
+  const last = typing.i + 1 >= typing.sentences.length;
   // little cutscene between sentences
   setTimeout(() => {
     if (typing !== current) return;
@@ -1717,12 +1722,14 @@ function finishTyping() {
   $('type-acc').textContent = `${acc}%`;
   const p = player();
   const perfect = !typing.mistakes;
-  const gems = Math.round((TYPING_LEVELS[typing.level].gems * acc) / 100) + (perfect ? TYPING_PERFECT_GEMS : 0);
+  const gems = perfect ? TYPING_LEVELS[typing.level].gems : 0;
   p.gems += gems;
   p.gemsEarned += gems;
   save();
   renderTopbar();
-  $('type-gems').textContent = `You earned ${gems} gems${perfect ? ` (includes +${TYPING_PERFECT_GEMS} perfect bonus!)` : ''}`;
+  $('type-gems').textContent = perfect
+    ? `You earned ${gems} gems for typing with no mistakes!`
+    : 'No gems this time. Type with no mistakes to earn gems!';
   sfx.chest();
   typing = null;
   show('typedone');
