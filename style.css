@@ -833,6 +833,45 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
 .splash.leaving { animation: splash-fade .45s ease forwards; pointer-events: none; }
 @keyframes splash-fade { to { opacity: 0; } }
 
+/* ================= Typing test ================= */
+.section-gap { margin-top: 36px; }
+.type-card small { display: block; margin-top: 2px; font-size: .8rem; color: var(--muted); }
+.type-card.selected small { color: var(--night); opacity: .7; }
+.type-card .sym { font-size: 2rem; }
+.typing-count { min-width: 110px; }
+.typing-card {
+  position: relative; cursor: text;
+  background: var(--cream); color: var(--night);
+  border-radius: 28px; padding: 34px 26px;
+  border: 4px solid var(--sage); box-shadow: 0 10px 0 var(--green), var(--shadow);
+}
+.typing-card.slide-in { animation: type-slide .5s var(--spring); }
+@keyframes type-slide { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+.typing-text { font-size: clamp(1.5rem, 5.5vw, 2.2rem); font-weight: 600; line-height: 1.7; word-wrap: break-word; }
+.typing-text .word { display: inline-block; padding: 0 4px; margin: 0 -4px; border-radius: 10px; border: 2px solid transparent; }
+.typing-text .word.current { border-color: var(--green); background: rgba(42, 131, 95, .08); }
+.ch { position: relative; transition: opacity .12s, color .12s, background .12s; border-radius: 4px; }
+.ch.todo { opacity: .3; }
+.ch.ok { opacity: 1; }
+.ch.bad { opacity: 1; color: #d63c3c; background: rgba(255, 107, 107, .3); }
+.ch.cursor::before {
+  content: ""; position: absolute; left: -1px; top: 12%; bottom: 12%; width: 3px;
+  background: var(--green); border-radius: 2px; animation: caret 1s steps(1) infinite;
+}
+@keyframes caret { 50% { opacity: 0; } }
+/* the real input sits invisibly over the card so tapping it opens the keyboard */
+.typing-input {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: none; font-size: 16px; cursor: text;
+}
+.typing-hint { text-align: center; color: var(--muted); margin-top: 22px; animation: bubble-bob 1.2s ease-in-out infinite; }
+.type-acc-box {
+  display: inline-flex; flex-direction: column; align-items: center;
+  background: var(--night); border-radius: 20px; padding: 16px 40px; margin: 6px 0 22px;
+}
+.type-acc-box b { font-size: 3rem; color: var(--sage); line-height: 1.1; }
+.type-acc-box span { color: var(--muted); font-weight: 600; }
+
 /* ================= Lost streak popup ================= */
 .streak-card { border-color: #7fd3ff; }
 .lost-fire { width: 64px; height: 84px; display: block; margin: 0 auto 10px; animation: lost-sway 2.4s ease-in-out infinite; transform-origin: bottom center; }

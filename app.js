@@ -209,7 +209,7 @@ function upgradeProfile(p) {
     ownedAvatars: [...FREE_AVATARS], ownedFrames: [...FREE_FRAMES],
     freezes: 0, subjectStats: {}, daily: {}, badges: [],
     bestCombo: 0, perfects: 0, purchases: 0, speedy: false,
-    gemsEarned: p.gems || 0, reviewQueue: [], mode: 'type',
+    gemsEarned: p.gems || 0, reviewQueue: [], mode: 'type', typingLevel: 'easy',
   };
   Object.entries(defaults).forEach(([k, v]) => { if (p[k] === undefined) p[k] = v; });
   // everyone always owns the free ones, and unknown picks fall back to a free one
@@ -716,11 +716,11 @@ function avatarHTML(avatarId, frameId, size) {
 }
 
 // ---------- screens ----------
-const SCREENS = ['login', 'ready', 'countdown', 'quiz', 'results', 'lobby'];
+const SCREENS = ['login', 'ready', 'countdown', 'quiz', 'results', 'lobby', 'typing', 'typedone'];
 function show(name) {
   SCREENS.forEach((s) => $(`screen-${s}`).classList.toggle('hidden', s !== name));
   $('topbar').classList.toggle('hidden', name === 'login');
-  if (['countdown', 'quiz', 'login'].includes(name)) hideToast();
+  if (['countdown', 'quiz', 'login', 'typing'].includes(name)) hideToast();
   window.scrollTo(0, 0);
   updateMusic();
 }
@@ -1162,16 +1162,16 @@ $('mode-seg').addEventListener('click', (e) => {
   renderReadyDetails();
 });
 
-$('ready-yes').onclick = startCountdown;
+$('ready-yes').onclick = () => startCountdown(startQuiz);
 $('ready-no').onclick = () => showLobby('play');
 
-function startCountdown() {
+function startCountdown(next) {
   show('countdown');
   const el = $('countdown-num');
   const steps = ['3', '2', '1', 'Go!'];
   let i = 0;
   const tick = () => {
-    if (i >= steps.length) { startQuiz(); return; }
+    if (i >= steps.length) { next(); return; }
     el.textContent = steps[i];
     el.classList.remove('pop');
     void el.offsetWidth; // restart the animation
@@ -1548,9 +1548,184 @@ function renderLobby() {
     };
     grid.appendChild(b);
   });
+  renderTypingLevels();
   renderTopbar();
 }
 $('start-course').onclick = () => showReady();
+
+// ---------- typing test ----------
+// 5 kid-friendly sentences. Untyped letters are faded, the current word has an
+// outline, correct letters turn into normal text and wrong ones get a red tint.
+const TYPING_SENTENCES = 5;
+const TYPING_LEVELS = {
+  easy:   { label: 'Easy',   sym: 'abc',  desc: 'Short and simple' },
+  medium: { label: 'Medium', sym: 'Abc.', desc: 'Capitals and periods' },
+  hard:   { label: 'Hard',   sym: 'Abc!', desc: 'Longer, with punctuation' },
+};
+const SENTENCES = {
+  easy: [
+    'i like to read books', 'the cat is on the mat', 'we can play at the park',
+    'my dog likes to run fast', 'the sun is big and hot', 'i can count to ten',
+    'fish swim in the sea', 'we eat lunch at noon', 'the frog can jump high',
+    'i have a red ball', 'birds sing in the trees', 'my mom makes good soup',
+    'we like to draw and paint', 'the bus is big and yellow', 'i love to play math games',
+  ],
+  medium: [
+    'I love using Flashy to practice math.', 'My friend and I built a tall block tower.',
+    'The puppy chased its tail around the yard.', 'We went to the beach and found shells.',
+    'Reading a good book is so much fun.', 'My favorite color is green like a leaf.',
+    'The rocket zoomed up into the night sky.', 'We planted seeds and watched them grow.',
+    'I can add and subtract numbers fast.', 'The turtle is slow but it never gives up.',
+    'Our class went on a trip to the zoo.', 'I brush my teeth every morning and night.',
+    'The rain made big puddles on the road.', 'Pizza is the best food for a party.',
+    'My brother likes to play soccer outside.',
+  ],
+  hard: [
+    'I love using Flashy, it has math problems and typing quizzes!',
+    'Wow, the dragon flew over the castle and landed by the lake.',
+    'On Saturday, we baked cookies, played games, and watched a movie.',
+    'Did you know that octopuses have three hearts and blue blood?',
+    "My best friend's dog, Max, can catch a frisbee in the air!",
+    'The astronaut floated in space and waved at the camera.',
+    'When it snows, we build snowmen and drink hot chocolate.',
+    'Practice makes progress, so keep trying your best every day!',
+    "Penguins can't fly, but they are amazing swimmers.",
+    'After school, I finish my homework and then ride my bike.',
+    'The volcano rumbled, and bright orange lava poured out!',
+    'We counted 125 stars, 8 planets, and 1 bright moon.',
+    'Can you type this whole sentence without a single mistake?',
+    'The library has books about dinosaurs, robots, and space.',
+    "Grandma's garden has tomatoes, carrots, and sunflowers.",
+  ],
+};
+
+function renderTypingLevels() {
+  const p = player();
+  if (!TYPING_LEVELS[p.typingLevel]) p.typingLevel = 'easy';
+  $('typing-grid').innerHTML = Object.entries(TYPING_LEVELS).map(([key, l]) => `
+    <button type="button" class="op-card type-card${p.typingLevel === key ? ' selected' : ''}" data-level="${key}">
+      <span class="sym">${l.sym}</span><span class="lbl">${l.label}</span><small>${l.desc}</small>
+    </button>`).join('');
+}
+$('typing-grid').addEventListener('click', (e) => {
+  const b = e.target.closest('.type-card');
+  if (!b) return;
+  player().typingLevel = b.dataset.level;
+  save();
+  $('typing-grid').querySelectorAll('.type-card').forEach((x) => x.classList.toggle('selected', x === b));
+});
+$('start-typing').onclick = () => startCountdown(startTyping);
+
+let typing = null; // { sentences, i, typed, keys, mistakes, locked }
+
+function startTyping() {
+  const level = player().typingLevel || 'easy';
+  typing = { level, sentences: shuffle([...SENTENCES[level]]).slice(0, TYPING_SENTENCES), i: 0, typed: '', keys: 0, mistakes: 0, locked: false };
+  show('typing');
+  showSentence();
+}
+
+function showSentence() {
+  const s = typing.sentences[typing.i];
+  typing.typed = '';
+  typing.locked = false;
+  $('typing-count').textContent = `Sentence ${typing.i + 1} / ${TYPING_SENTENCES}`;
+  $('typing-progress').style.width = `${(typing.i / TYPING_SENTENCES) * 100}%`;
+  const input = $('typing-input');
+  input.value = '';
+  input.maxLength = s.length;
+  $('typing-hint').classList.remove('hidden');
+  const card = $('typing-card');
+  card.classList.remove('slide-in');
+  void card.offsetWidth;
+  card.classList.add('slide-in');
+  renderSentence();
+  input.focus();
+}
+
+// Draw the sentence letter by letter, grouped into words so the current word can have an outline.
+function renderSentence() {
+  const s = typing.sentences[typing.i];
+  const t = typing.typed;
+  const at = t.length;
+  let html = '';
+  let start = 0;
+  s.split(/(\s)/).forEach((part) => {
+    const end = start + part.length;
+    const letters = [...part].map((ch, k) => {
+      const i = start + k;
+      const state = i < at ? (t[i] === ch ? 'ok' : 'bad') : 'todo';
+      return `<span class="ch ${state}${i === at ? ' cursor' : ''}">${ch === ' ' ? '&nbsp;' : ch.replace('&', '&amp;').replace('<', '&lt;')}</span>`;
+    }).join('');
+    if (part === ' ') html += letters;
+    else html += `<span class="word${at >= start && at <= end && at < s.length ? ' current' : ''}">${letters}</span>`;
+    start = end;
+  });
+  $('typing-text').innerHTML = html;
+}
+
+// Phones sometimes swap in curly quotes; treat them like normal ones.
+const plainQuotes = (v) => v.replace(/[‘’]/g, "'").replace(/[“”]/g, '"');
+
+$('typing-input').addEventListener('input', (e) => {
+  if (!typing || typing.locked) return;
+  const s = typing.sentences[typing.i];
+  const value = plainQuotes(e.target.value).slice(0, s.length);
+  if (value !== e.target.value) e.target.value = value;
+  // every new letter counts toward accuracy, even if it's fixed later
+  for (let i = typing.typed.length; i < value.length; i++) {
+    typing.keys++;
+    if (value[i] !== s[i]) { typing.mistakes++; sfx.tick(); }
+  }
+  typing.typed = value;
+  if (value.length) $('typing-hint').classList.add('hidden');
+  renderSentence();
+  if (value.length === s.length) finishSentence();
+});
+$('typing-card').addEventListener('click', () => $('typing-input').focus());
+
+function finishSentence() {
+  typing.locked = true;
+  $('typing-progress').style.width = `${((typing.i + 1) / TYPING_SENTENCES) * 100}%`;
+  const current = typing;
+  const last = typing.i + 1 >= TYPING_SENTENCES;
+  // little cutscene between sentences
+  setTimeout(() => {
+    if (typing !== current) return;
+    if (last) { finishTyping(); return; }
+    sfx.combo();
+    $('typing-cut-sub').textContent = `Sentence ${typing.i + 2} of ${TYPING_SENTENCES}`;
+    $('typing-cut').classList.remove('hidden');
+    setTimeout(() => {
+      $('typing-cut').classList.add('hidden');
+      if (typing !== current) return;
+      typing.i++;
+      showSentence();
+    }, 1600);
+  }, 400);
+}
+
+function finishTyping() {
+  // 100% only with zero mistakes (so one slip never rounds up to "perfect")
+  const raw = typing.keys ? ((typing.keys - typing.mistakes) / typing.keys) * 100 : 100;
+  const acc = typing.mistakes ? Math.min(99, Math.round(raw)) : 100;
+  const stars = acc >= 95 ? 3 : acc >= 85 ? 2 : acc >= 70 ? 1 : 0;
+  $('type-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+  $('type-title').textContent = acc === 100 ? 'PERFECT!' : acc >= 90 ? 'Great typing!' : acc >= 75 ? 'Nice work!' : 'Keep practicing!';
+  $('type-acc').textContent = `${acc}%`;
+  sfx.chest();
+  typing = null;
+  show('typedone');
+}
+
+$('typing-quit').onclick = () => {
+  if (!confirm('Quit this typing test?')) return;
+  typing = null;
+  $('typing-cut').classList.add('hidden');
+  showLobby('play');
+};
+$('type-again').onclick = () => startCountdown(startTyping);
+$('type-lobby').onclick = () => showLobby('play');
 
 function renderRewards() {
   const p = player();
@@ -1812,7 +1987,7 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- bouncy clicks ----------
 // Every button springs when pressed; the class restarts the animation on each click.
-const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .path-arrow, .item, .avatar-choice, .seg button, .choice';
+const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .path-arrow, .item, .avatar-choice, .seg button, .choice, .type-card';
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(BOUNCY);
   if (!el || el.disabled) return;
