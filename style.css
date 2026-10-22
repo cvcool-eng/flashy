@@ -366,13 +366,13 @@ input:focus { border-color: var(--sage); }
   position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%);
   z-index: 30; width: calc(100% - 32px); max-width: 480px;
   display: flex; align-items: center; gap: 10px;
-  background: var(--cream); color: var(--night); font-weight: 600;
-  padding: 12px 14px; border-radius: 18px; border: 3px solid var(--gold);
+  background: var(--green); color: var(--cream); font-weight: 600;
+  padding: 12px 14px; border-radius: 18px; border: 3px solid var(--sage);
   box-shadow: var(--shadow);
   animation: slideUp .45s cubic-bezier(.2, 1.4, .4, 1);
 }
 .toast span { flex: 1; }
-.toast-x { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--teal); }
+.toast-x { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--cream); }
 @keyframes slideUp { from { transform: translate(-50%, 140%); } to { transform: translate(-50%, 0); } }
 
 /* ---------- Modal ---------- */
