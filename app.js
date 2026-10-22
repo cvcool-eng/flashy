@@ -67,6 +67,7 @@ function newProfile(name, grade) {
     streak: 0, bestStreak: 0, lastVisit: null,
     lastClaim: null, claimedDays: [], chestsOpened: 0,
     courses: 0, totalCorrect: 0, bestScore: 0,
+    seenIntro: false,
   };
 }
 
@@ -248,13 +249,19 @@ function showLogin() {
   $('name-input').focus();
 }
 
-// Sign in to a saved account and go straight to the first course prompt.
+// Sign in to an account. Only an account's very first sign-in gets the
+// "see what a course is like?" prompt; after that it goes to the lobby.
+// (Accounts made before this flag existed have no seenIntro, so they count as seen.)
 function signInAs(key) {
+  const p = data.profiles[key];
   data.current = key;
-  touchStreak(data.profiles[key]);
+  touchStreak(p);
+  const firstTime = p.seenIntro === false;
+  p.seenIntro = true;
   save();
   renderTopbar();
-  showReady(true);
+  if (firstTime) showReady(true);
+  else showLobby('play');
   maybeToast();
 }
 
@@ -292,12 +299,7 @@ $('login-form').addEventListener('submit', (e) => {
   const key = name.toLowerCase();
   if (!data.profiles[key]) data.profiles[key] = newProfile(name, loginGrade);
   data.profiles[key].grade = loginGrade;
-  data.current = key;
-  touchStreak(data.profiles[key]);
-  save();
-  renderTopbar();
-  showReady(true);
-  maybeToast();
+  signInAs(key);
 });
 
 // ---------- ready + countdown ----------
