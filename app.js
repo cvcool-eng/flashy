@@ -620,11 +620,11 @@ function makeQuestion(op, grade, easy = false, simple = false) {
   return q;
 }
 
-// Seconds per question. Typing answers in grades 5-8 is a fast 5 seconds;
-// multiple choice (and younger grades) keep the normal timer for their grade.
-const TYPE_TIMER_OLDER = 5;
+// Seconds per question. Grades 5-8 get a fast 5 seconds (typing and multiple choice);
+// younger grades keep the normal timer for their grade.
+const OLDER_TIMER = 5;
 function questionTime(p, op) {
-  const base = p.mode !== 'choice' && p.grade >= 5 ? TYPE_TIMER_OLDER : TIMER_BY_GRADE[p.grade];
+  const base = p.grade >= 5 ? OLDER_TIMER : TIMER_BY_GRADE[p.grade];
   return base + (EXTRA_TIME[op] || 0);
 }
 
