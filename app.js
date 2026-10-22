@@ -1285,17 +1285,19 @@ $('start-course').onclick = () => showReady();
 
 function renderRewards() {
   const p = player();
-  const start = Math.floor((p.streak - 1) / MEGA_EVERY) * MEGA_EVERY + 1;
+  // The row starts at day 1 and shows up to day 50; once the streak reaches 50
+  // it keeps growing so there are always at least 25 days ahead.
+  const end = p.streak < 50 ? 50 : Math.ceil((p.streak + MEGA_EVERY) / MEGA_EVERY) * MEGA_EVERY;
   const ready = canClaim(p);
   $('rewards-sub').textContent = ready
     ? `Day ${p.streak} chest is ready! Tap the glowing chest to open it.`
     : `You opened today's chest. Come back tomorrow for day ${p.streak + 1}!`;
 
-  // One long row of chests (this 25-day stretch and the next), scrolling to the right.
+  // One long row of chests, scrolling to the right.
   const track = $('chest-track');
   track.innerHTML = '';
   let focus = null;
-  for (let day = start; day < start + MEGA_EVERY * 2; day++) {
+  for (let day = 1; day <= end; day++) {
     const claimed = p.claimedDays.includes(day);
     let state = 'locked';
     if (claimed) state = 'claimed';
