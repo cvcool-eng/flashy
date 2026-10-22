@@ -312,44 +312,68 @@ const sfx = {
   swoosh: () => tone(300, 0.16, { type: 'triangle', vol: 0.14, slide: 2.2 }),
 };
 
-// ----- lobby music: a cheerful 4-chord loop (C - Am - F - G) with bass, arpeggio and a melody -----
+// ----- lobby music: chill lo-fi keys -----
+// Warm, muffled electric-piano chords (Fmaj7 - G - Em7 - Am7), a soft bass note,
+// and a sparse pluck melody. No drums.
 const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
-const MUSIC_BPM = 100;
-const EIGHTH = 60 / MUSIC_BPM / 2;
-const CHORDS = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]];
-const BASS = [48, 45, 41, 43];
-const ARP = [0, 1, 2, 1, 3, 2, 1, 2]; // which chord tone each eighth note plays (3 = root an octave up)
-const MELODY = [ // one bar per chord, 8 eighth notes each, 0 = rest
-  [72, 0, 76, 0, 74, 72, 0, 0],
-  [69, 0, 72, 0, 76, 0, 0, 0],
-  [69, 0, 72, 0, 77, 76, 74, 0],
-  [71, 0, 74, 0, 79, 0, 0, 0],
+const MUSIC_BPM = 140;
+const STEP = 60 / MUSIC_BPM / 4; // one 16th note
+const CHORDS = [[53, 57, 60, 64], [55, 59, 62, 67], [52, 55, 59, 62], [57, 60, 64, 67]];
+const BASS = [41, 43, 40, 45];
+const MELODY = [ // sparse pluck in A minor pentatonic, step -> note
+  { 2: 76, 6: 74, 10: 72 },
+  { 0: 74, 6: 79, 12: 76 },
+  { 2: 71, 6: 72, 10: 74 },
+  { 0: 76, 8: 72, 12: 69 },
 ];
-let music = { playing: false, timer: null, step: 0, nextTime: 0 };
+let music = { playing: false, timer: null, step: 0, nextTime: 0, keys: null, pluck: null };
+
+function musicNodes() {
+  if (music.keys) return;
+  // muffled "lo-fi" filter for the keys and the melody
+  music.keys = actx.createBiquadFilter();
+  music.keys.type = 'lowpass';
+  music.keys.frequency.value = 1400;
+  music.keys.connect(musicBus);
+  music.pluck = actx.createBiquadFilter();
+  music.pluck.type = 'lowpass';
+  music.pluck.frequency.value = 2200;
+  music.pluck.connect(musicBus);
+}
 
 function scheduleMusic() {
   // schedule a little ahead of the audio clock so timing stays steady
   while (music.nextTime < actx.currentTime + 0.25) {
     const s = music.step;
-    const bar = Math.floor(s / 8) % 4;
-    const eighth = s % 8;
-    const loop = Math.floor(s / 32);
+    const bar = Math.floor(s / 16) % 4;
+    const step = s % 16;
+    const loop = Math.floor(s / 64);
     const t = music.nextTime;
-    const chord = CHORDS[bar];
-    const opts = (type, vol, attack = 0.02) => ({ type, vol, attack, bus: musicBus });
-    if (eighth === 0) chord.forEach((m) => note(midi(m), t, EIGHTH * 8, opts('sine', 0.06, 0.25)));      // soft pad
-    if (eighth === 0 || eighth === 4) note(midi(BASS[bar]), t, EIGHTH * 3.5, opts('triangle', 0.22));    // bass
-    const tone8 = ARP[eighth] === 3 ? chord[0] + 12 : chord[ARP[eighth]];
-    note(midi(tone8 + 12), t, EIGHTH * 0.9, opts('triangle', 0.07));                                       // arpeggio
-    const mel = MELODY[bar][eighth];
-    if (mel && loop % 2 === 1) note(midi(mel), t, EIGHTH * 1.8, opts('square', 0.035, 0.01));               // melody every other loop
+
+    // keys: a warm chord at the top of every bar, plus a softer re-hit halfway
+    if (step === 0 || step === 8) {
+      CHORDS[bar].forEach((m) => {
+        note(midi(m), t, STEP * 8, { type: 'sine', vol: step ? 0.05 : 0.09, attack: 0.02, bus: music.keys });
+        note(midi(m) * 1.003, t, STEP * 6, { type: 'triangle', vol: step ? 0.02 : 0.035, attack: 0.02, bus: music.keys });
+      });
+    }
+    // soft, round bass note under each chord (plus a quiet octave so phones can hear it)
+    if (step === 0) {
+      note(midi(BASS[bar]), t, STEP * 15, { type: 'sine', vol: 0.3, attack: 0.04, bus: music.keys });
+      note(midi(BASS[bar] + 12), t, STEP * 12, { type: 'sine', vol: 0.06, attack: 0.04, bus: music.keys });
+    }
+    // melody comes in every other loop
+    const mel = MELODY[bar][step];
+    if (mel && loop % 2 === 1) note(midi(mel), t, STEP * 3, { type: 'square', vol: 0.05, attack: 0.005, bus: music.pluck });
+
     music.step++;
-    music.nextTime += EIGHTH;
+    music.nextTime += STEP;
   }
 }
 
 function startMusic() {
   if (!musicOn() || music.playing || !audioCtx()) return;
+  musicNodes();
   music.playing = true;
   music.step = 0;
   music.nextTime = actx.currentTime + 0.1;
