@@ -241,59 +241,164 @@ const canClaim = (p) => p.lastClaim !== dayKey();
 const isMegaDay = (day) => day % MEGA_EVERY === 0;
 const fireTier = (streak) => [...FIRE_TIERS].reverse().find((t) => streak >= t.min);
 
-// ---------- sounds (made with Web Audio, no files) ----------
+// ---------- sounds + music (made with Web Audio, no files) ----------
+// Everything plays through a master volume and a limiter so it's loud but never crackly:
+//   sound effects -> sfxBus ┐
+//   lobby music  -> musicBus ┴-> master -> limiter -> speakers
 let actx = null;
+let sfxBus = null;
+let musicBus = null;
+const MASTER_VOLUME = 1.4;
+const MUSIC_VOLUME = 0.55;
 const soundOn = () => data.sound !== false;
-function audio() {
-  if (!soundOn()) return null;
+const musicOn = () => data.music !== false;
+
+function audioCtx() {
   try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (!actx) {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      const limiter = actx.createDynamicsCompressor();
+      limiter.threshold.value = -8;
+      limiter.knee.value = 6;
+      limiter.ratio.value = 12;
+      const master = actx.createGain();
+      master.gain.value = MASTER_VOLUME;
+      master.connect(limiter).connect(actx.destination);
+      sfxBus = actx.createGain();
+      sfxBus.connect(master);
+      musicBus = actx.createGain();
+      musicBus.gain.value = 0;
+      musicBus.connect(master);
+    }
     if (actx.state === 'suspended') actx.resume();
     return actx;
   } catch (e) { return null; }
 }
-function tone(freq, dur, { type = 'sine', vol = 0.12, at = 0, slide = 0 } = {}) {
-  const ctx = audio();
-  if (!ctx) return;
-  const t = ctx.currentTime + at;
-  const o = ctx.createOscillator();
-  const g = ctx.createGain();
+
+// One note at an exact time on the audio clock.
+function note(freq, start, dur, { type = 'sine', vol = 0.3, attack = 0.01, slide = 0, bus = sfxBus } = {}) {
+  const o = actx.createOscillator();
+  const g = actx.createGain();
   o.type = type;
-  o.frequency.setValueAtTime(freq, t);
-  if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, t + dur);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(ctx.destination);
-  o.start(t);
-  o.stop(t + dur + 0.02);
+  o.frequency.setValueAtTime(freq, start);
+  if (slide) o.frequency.exponentialRampToValueAtTime(freq * slide, start + dur);
+  g.gain.setValueAtTime(0.0001, start);
+  g.gain.exponentialRampToValueAtTime(vol, start + attack);
+  g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  o.connect(g).connect(bus);
+  o.start(start);
+  o.stop(start + dur + 0.05);
+}
+// A sound effect `at` seconds from now.
+function tone(freq, dur, { at = 0, ...opts } = {}) {
+  if (!soundOn() || !audioCtx()) return;
+  note(freq, actx.currentTime + at, dur, opts);
 }
 const sfx = {
-  right: () => { tone(660, 0.12, { type: 'triangle' }); tone(990, 0.18, { type: 'triangle', at: 0.09 }); },
-  wrong: () => tone(220, 0.28, { type: 'sawtooth', vol: 0.05, slide: 0.7 }),
-  tick: () => tone(1200, 0.04, { type: 'square', vol: 0.03 }),
-  count: () => tone(520, 0.15, { type: 'triangle' }),
-  go: () => tone(780, 0.3, { type: 'triangle' }),
-  combo: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, { type: 'triangle', at: i * 0.07 })),
-  shake: () => tone(140, 0.08, { type: 'square', vol: 0.03 }),
-  chest: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, { type: 'triangle', at: i * 0.06, vol: 0.1 })),
-  buy: () => { tone(880, 0.1); tone(1320, 0.2, { at: 0.08 }); },
-  badge: () => [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.18, { at: i * 0.09, vol: 0.1 })),
+  right: () => { tone(660, 0.14, { type: 'triangle', vol: 0.4 }); tone(990, 0.22, { type: 'triangle', vol: 0.4, at: 0.09 }); },
+  wrong: () => tone(220, 0.3, { type: 'sawtooth', vol: 0.18, slide: 0.7 }),
+  tick: () => tone(1200, 0.05, { type: 'square', vol: 0.1 }),
+  count: () => tone(520, 0.18, { type: 'triangle', vol: 0.4 }),
+  go: () => tone(780, 0.35, { type: 'triangle', vol: 0.45 }),
+  combo: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.16, { type: 'triangle', vol: 0.35, at: i * 0.07 })),
+  shake: () => tone(140, 0.09, { type: 'square', vol: 0.12 }),
+  chest: () => [392, 523, 659, 784, 1047].forEach((f, i) => tone(f, 0.24, { type: 'triangle', vol: 0.32, at: i * 0.06 })),
+  buy: () => { tone(880, 0.12, { vol: 0.35 }); tone(1320, 0.24, { vol: 0.35, at: 0.08 }); },
+  badge: () => [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.2, { vol: 0.3, at: i * 0.09 })),
+  // UI sounds
+  click: () => tone(520, 0.07, { type: 'sine', vol: 0.22, slide: 1.7 }),
+  open: () => [523, 659, 880].forEach((f, i) => tone(f, 0.12, { type: 'sine', vol: 0.2, at: i * 0.05 })),
+  close: () => [784, 587, 440].forEach((f, i) => tone(f, 0.1, { type: 'sine', vol: 0.16, at: i * 0.045 })),
+  swoosh: () => tone(300, 0.16, { type: 'triangle', vol: 0.14, slide: 2.2 }),
 };
+
+// ----- lobby music: a cheerful 4-chord loop (C - Am - F - G) with bass, arpeggio and a melody -----
+const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+const MUSIC_BPM = 100;
+const EIGHTH = 60 / MUSIC_BPM / 2;
+const CHORDS = [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]];
+const BASS = [48, 45, 41, 43];
+const ARP = [0, 1, 2, 1, 3, 2, 1, 2]; // which chord tone each eighth note plays (3 = root an octave up)
+const MELODY = [ // one bar per chord, 8 eighth notes each, 0 = rest
+  [72, 0, 76, 0, 74, 72, 0, 0],
+  [69, 0, 72, 0, 76, 0, 0, 0],
+  [69, 0, 72, 0, 77, 76, 74, 0],
+  [71, 0, 74, 0, 79, 0, 0, 0],
+];
+let music = { playing: false, timer: null, step: 0, nextTime: 0 };
+
+function scheduleMusic() {
+  // schedule a little ahead of the audio clock so timing stays steady
+  while (music.nextTime < actx.currentTime + 0.25) {
+    const s = music.step;
+    const bar = Math.floor(s / 8) % 4;
+    const eighth = s % 8;
+    const loop = Math.floor(s / 32);
+    const t = music.nextTime;
+    const chord = CHORDS[bar];
+    const opts = (type, vol, attack = 0.02) => ({ type, vol, attack, bus: musicBus });
+    if (eighth === 0) chord.forEach((m) => note(midi(m), t, EIGHTH * 8, opts('sine', 0.06, 0.25)));      // soft pad
+    if (eighth === 0 || eighth === 4) note(midi(BASS[bar]), t, EIGHTH * 3.5, opts('triangle', 0.22));    // bass
+    const tone8 = ARP[eighth] === 3 ? chord[0] + 12 : chord[ARP[eighth]];
+    note(midi(tone8 + 12), t, EIGHTH * 0.9, opts('triangle', 0.07));                                       // arpeggio
+    const mel = MELODY[bar][eighth];
+    if (mel && loop % 2 === 1) note(midi(mel), t, EIGHTH * 1.8, opts('square', 0.035, 0.01));               // melody every other loop
+    music.step++;
+    music.nextTime += EIGHTH;
+  }
+}
+
+function startMusic() {
+  if (!musicOn() || music.playing || !audioCtx()) return;
+  music.playing = true;
+  music.step = 0;
+  music.nextTime = actx.currentTime + 0.1;
+  musicBus.gain.cancelScheduledValues(actx.currentTime);
+  musicBus.gain.setValueAtTime(musicBus.gain.value, actx.currentTime);
+  musicBus.gain.linearRampToValueAtTime(MUSIC_VOLUME, actx.currentTime + 1.2);
+  scheduleMusic();
+  music.timer = setInterval(scheduleMusic, 60);
+}
+function stopMusic() {
+  if (!music.playing) return;
+  music.playing = false;
+  clearInterval(music.timer);
+  musicBus.gain.cancelScheduledValues(actx.currentTime);
+  musicBus.gain.setValueAtTime(musicBus.gain.value, actx.currentTime);
+  musicBus.gain.linearRampToValueAtTime(0, actx.currentTime + 0.5);
+}
+// Music plays only while the lobby is on screen (and the page is visible).
+const inLobby = () => !$('screen-lobby').classList.contains('hidden');
+function updateMusic() {
+  if (musicOn() && inLobby() && document.visibilityState === 'visible') startMusic();
+  else stopMusic();
+}
+// Browsers only allow audio after the first tap, so try again on every tap.
+document.addEventListener('pointerdown', () => updateMusic(), true);
+document.addEventListener('visibilitychange', updateMusic);
 
 function setSound(on) {
   data.sound = on;
   save();
   renderSoundControls();
 }
+function setMusic(on) {
+  data.music = on;
+  save();
+  renderSoundControls();
+  updateMusic();
+}
 function renderSoundControls() {
   $('quiz-sound').innerHTML = soundOn() ? SOUND_ON_SVG : SOUND_OFF_SVG;
   $('quiz-sound').setAttribute('aria-label', soundOn() ? 'Turn sound off' : 'Turn sound on');
   $('sound-switch').classList.toggle('on', soundOn());
   $('sound-switch').setAttribute('aria-checked', String(soundOn()));
+  $('music-switch').classList.toggle('on', musicOn());
+  $('music-switch').setAttribute('aria-checked', String(musicOn()));
 }
 $('quiz-sound').onclick = () => setSound(!soundOn());
 $('sound-switch').onclick = () => setSound(!soundOn());
+$('music-switch').onclick = () => setMusic(!musicOn());
 
 // ---------- question generator ----------
 // Each grade returns [first number, second number] for the operation.
@@ -492,6 +597,7 @@ function show(name) {
   $('topbar').classList.toggle('hidden', name === 'login');
   if (['countdown', 'quiz', 'login'].includes(name)) hideToast();
   window.scrollTo(0, 0);
+  updateMusic();
 }
 
 function renderTopbar() {
@@ -685,8 +791,10 @@ function openProfile() {
   locker = { kind: 'avatar', avatar: p.avatar, frame: p.frame, focus: { kind: 'avatar', id: p.avatar } };
   renderProfile();
   $('profile-modal').classList.remove('hidden');
+  sfx.open();
 }
 function closeProfile() {
+  if (!$('profile-modal').classList.contains('hidden')) sfx.close();
   $('profile-modal').classList.add('hidden');
   locker = null;
   renderTopbar();
@@ -1123,7 +1231,7 @@ function switchTab(tab) {
   if (tab === 'rewards') { hideToast(); renderRewards(); }
   if (tab === 'stats') renderStats();
 }
-document.querySelectorAll('.tab').forEach((t) => { t.onclick = () => switchTab(t.dataset.tab); });
+document.querySelectorAll('.tab').forEach((t) => { t.onclick = () => { sfx.swoosh(); switchTab(t.dataset.tab); }; });
 
 function renderLobby() {
   const p = player();
@@ -1218,6 +1326,7 @@ function claimChest() {
   $('chest-reward').textContent = '';
   $('chest-ok').classList.add('hidden');
   $('chest-modal').classList.remove('hidden');
+  sfx.open();
 }
 
 let chestOpening = null;
@@ -1271,6 +1380,7 @@ $('path-left').onclick = () => $('chest-track').scrollBy({ left: -320, behavior:
 $('path-right').onclick = () => $('chest-track').scrollBy({ left: 320, behavior: 'smooth' });
 
 $('chest-ok').onclick = () => {
+  sfx.close();
   chestOpening = null;
   $('chest-modal').classList.add('hidden');
   if (!$('screen-lobby').classList.contains('hidden')) renderRewards();
@@ -1407,6 +1517,7 @@ const BOUNCY = '.btn, .tab, .op-card, .grade-btn, .key, .chest-node, .pill, .pat
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest(BOUNCY);
   if (!el || el.disabled) return;
+  sfx.click();
   el.classList.remove('bounce');
   void el.offsetWidth;
   el.classList.add('bounce');
