@@ -1826,12 +1826,13 @@ document.addEventListener('animationend', (e) => {
 });
 
 // ---------- start ----------
-// Loading screen: shows for about a second, then bounces down off the screen.
+// Loading screen: shows for about 2 seconds, then bounces down off the screen.
 setTimeout(() => {
   const splash = $('splash');
   splash.classList.add('leaving');
   splash.addEventListener('animationend', (e) => { if (e.target === splash) splash.remove(); });
-}, 1000);
+  setTimeout(() => splash.remove(), 1200); // backup in case the animation is paused
+}, 2000);
 
 (function init() {
   const p = player();
