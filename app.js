@@ -1,4 +1,4 @@
-// ================== Flashy Math ==================
+// ================== Flashy ==================
 // All progress is saved in the browser (localStorage), one profile per name.
 
 const STORE_KEY = 'flashy-math-v1';
