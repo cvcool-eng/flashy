@@ -3,6 +3,8 @@
 
 const STORE_KEY = 'flashy-math-v1';
 const QUESTIONS_PER_COURSE = 25;
+const FIRST_COURSE_QUESTIONS = 10; // an account's first finished course is shorter
+const courseLength = (p) => (p.courses === 0 ? FIRST_COURSE_QUESTIONS : QUESTIONS_PER_COURSE);
 const SECONDS_PER_QUESTION = 10;
 const MEGA_EVERY = 25;
 const MEGA_GEMS = 400;
@@ -153,11 +155,11 @@ function makeQuestion(op, grade) {
   return { text, answer };
 }
 
-function makeCourse(op, grade) {
+function makeCourse(op, grade, count) {
   const qs = [];
   const seen = new Set();
   let tries = 0;
-  while (qs.length < QUESTIONS_PER_COURSE) {
+  while (qs.length < count) {
     const q = makeQuestion(op, grade);
     if (seen.has(q.text) && tries++ < 300) continue; // avoid repeats when possible
     seen.add(q.text);
@@ -306,7 +308,7 @@ $('login-form').addEventListener('submit', (e) => {
 // The first time (right after signing in) the buttons are worded differently.
 function showReady(afterSignIn = false) {
   const p = player();
-  $('ready-details').textContent = `${GRADE_NAMES[p.grade]} · ${OPS[p.op].label} · ${QUESTIONS_PER_COURSE} questions`;
+  $('ready-details').textContent = `${GRADE_NAMES[p.grade]} · ${OPS[p.op].label} · ${courseLength(p)} questions`;
   $('screen-ready').querySelector('.ready-title').textContent = afterSignIn
     ? 'Do you wanna see what a course is like?'
     : 'Are you ready to start the course?';
@@ -340,7 +342,7 @@ let quiz = null;
 
 function startQuiz() {
   const p = player();
-  quiz = { qs: makeCourse(p.op, p.grade), i: 0, correct: 0, locked: false };
+  quiz = { qs: makeCourse(p.op, p.grade, courseLength(p)), i: 0, correct: 0, locked: false };
   buildKeypad();
   show('quiz');
   renderQuestion();
@@ -353,8 +355,8 @@ function renderQuestion() {
   void card.offsetWidth;
   card.classList.add('flip');
   $('question').textContent = q.text;
-  $('q-count').textContent = `${quiz.i + 1} / ${QUESTIONS_PER_COURSE}`;
-  $('progress-fill').style.width = `${(quiz.i / QUESTIONS_PER_COURSE) * 100}%`;
+  $('q-count').textContent = `${quiz.i + 1} / ${quiz.qs.length}`;
+  $('progress-fill').style.width = `${(quiz.i / quiz.qs.length) * 100}%`;
   $('score-now').textContent = quiz.correct;
   const input = $('answer-input');
   input.value = '';
@@ -437,7 +439,7 @@ function checkAnswer(value) {
   setTimeout(() => {
     if (quiz !== current) return; // they quit meanwhile
     quiz.i++;
-    if (quiz.i >= QUESTIONS_PER_COURSE) finishQuiz();
+    if (quiz.i >= quiz.qs.length) finishQuiz();
     else renderQuestion();
   }, ok ? 800 : 1700);
 }
@@ -476,17 +478,20 @@ $('quit-btn').onclick = () => {
 function finishQuiz() {
   const p = player();
   const score = quiz.correct;
-  const perfect = score === QUESTIONS_PER_COURSE;
+  const total = quiz.qs.length;
+  const perfect = score === total;
   const gems = score * 2 + (perfect ? 10 : 0);
   p.gems += gems;
   p.courses += 1;
   p.totalCorrect += score;
-  p.bestScore = Math.max(p.bestScore, score);
+  // best score is out of a full 25-question course
+  if (total === QUESTIONS_PER_COURSE) p.bestScore = Math.max(p.bestScore, score);
   save();
   renderTopbar();
   quiz = null;
 
-  const pct = score / QUESTIONS_PER_COURSE;
+  const pct = score / total;
+  $('result-total').textContent = total;
   const stars = pct === 1 ? 3 : pct >= 0.8 ? 2 : pct >= 0.5 ? 1 : 0;
   $('result-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
   $('result-title').textContent = perfect ? 'PERFECT!' : pct >= 0.8 ? 'Great job!' : pct >= 0.5 ? 'Nice work!' : 'Keep practicing!';
