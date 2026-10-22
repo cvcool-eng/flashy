@@ -610,6 +610,7 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
   padding: 8px; border: none; border-radius: 10px; background: transparent; color: var(--muted);
 }
 .seg button.active { background: var(--sage); color: var(--night); }
+#profile-seg button { white-space: nowrap; padding: 8px 4px; font-size: .95rem; }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
 .item {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -871,6 +872,41 @@ button.pill { font: inherit; color: var(--text); cursor: pointer; }
 }
 .type-acc-box b { font-size: 3rem; color: var(--sage); line-height: 1.1; }
 .type-acc-box span { color: var(--muted); font-weight: 600; }
+
+/* ================= Name colors (same colors as the frames) ================= */
+.nc-classic { color: var(--sage); }
+.nc-gold, .nc-candy, .nc-ice, .nc-ocean, .nc-fire, .nc-sunset, .nc-toxic, .nc-neon, .nc-lava,
+.nc-shadow, .nc-rainbow, .nc-aurora, .nc-galaxy, .nc-diamond, .nc-lightning, .nc-legendary {
+  background-size: 300% 100%;
+  color: transparent; -webkit-background-clip: text; background-clip: text;
+  animation: nc-flow 4s linear infinite;
+}
+@keyframes nc-flow { to { background-position: 300% 0; } }
+.nc-gold { background-image: linear-gradient(90deg, #fff3b0, #ffd23f, #c98a00, #ffe680, #fff3b0); filter: drop-shadow(0 0 4px rgba(255, 210, 63, .5)); }
+.nc-candy { background-image: repeating-linear-gradient(90deg, #ff7ab6 0 12px, #fff 12px 24px); animation-duration: 6s; }
+.nc-ice { background-image: linear-gradient(90deg, #e0fbff, #7fd3ff, #fff, #3cb8e0, #e0fbff); filter: drop-shadow(0 0 4px rgba(127, 211, 255, .6)); }
+.nc-ocean { background-image: linear-gradient(90deg, #38bdf8, #22d3ee, #60a5fa, #a5f3fc, #38bdf8); }
+.nc-fire { background-image: linear-gradient(90deg, #ff3d00, #ff9a1a, #ffd23f, #ff5e1a, #ff3d00); animation-duration: 1.6s; filter: drop-shadow(0 0 5px rgba(255, 94, 26, .7)); }
+.nc-sunset { background-image: linear-gradient(90deg, #ff7e5f, #feb47b, #ff5e99, #b07bff, #ff7e5f); }
+.nc-toxic { background-image: linear-gradient(90deg, #a3ff12, #39ff14, #c6ff4d, #a3ff12); animation-duration: 2s; filter: drop-shadow(0 0 5px rgba(57, 255, 20, .7)); }
+.nc-neon { background-image: linear-gradient(90deg, #ff2bd6, #7a5cff, #00e5ff, #ff2bd6); animation-duration: 3s; filter: drop-shadow(0 0 5px rgba(255, 43, 214, .7)); }
+.nc-lava { background-image: linear-gradient(90deg, #ff2a00, #ff5a00, #ffb300, #ff3d00, #ff2a00); animation-duration: 5s; filter: drop-shadow(0 0 4px rgba(255, 61, 0, .6)); }
+.nc-shadow { background-image: linear-gradient(90deg, #a78bfa, #7c3aed, #c4b5fd, #a78bfa); filter: drop-shadow(0 0 5px rgba(124, 58, 237, .8)); }
+.nc-rainbow { background-image: linear-gradient(90deg, #ff4d4d, #ffb84d, #fff04d, #5dff7a, #4dc3ff, #9b6bff, #ff4dd2, #ff4d4d); animation-duration: 2.5s; }
+.nc-aurora { background-image: linear-gradient(90deg, #22d3ee, #a7f3d0, #818cf8, #f0abfc, #22d3ee); }
+.nc-galaxy { background-image: linear-gradient(90deg, #a78bfa, #ec4899, #60a5fa, #c4b5fd, #a78bfa); animation-duration: 6s; filter: drop-shadow(0 0 5px rgba(236, 72, 153, .6)); }
+.nc-diamond { background-image: linear-gradient(90deg, #fff, #bae6fd, #e0f2fe, #fff, #93c5fd, #fff); animation-duration: 2.5s; filter: drop-shadow(0 0 5px rgba(255, 255, 255, .7)); }
+.nc-lightning { background-image: linear-gradient(90deg, #fff9c4, #ffe600, #fff, #ffb300, #fff9c4); animation: nc-flow 1s linear infinite, nc-zap 1.8s steps(1) infinite; filter: drop-shadow(0 0 5px rgba(255, 230, 0, .7)); }
+.nc-legendary { background-image: linear-gradient(90deg, #ffd23f, #ff4dd2, #4dc3ff, #5dff7a, #ffd23f); animation-duration: 1.2s; filter: drop-shadow(0 0 6px rgba(255, 210, 63, .8)); }
+@keyframes nc-zap { 0%, 100% { opacity: 1; } 8% { opacity: .55; } 12% { opacity: 1; } 16% { opacity: .55; } 20% { opacity: 1; } }
+/* name samples in the profile's Name colors tab */
+.item-grid.names { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.name-sample {
+  display: block; max-width: 120px; padding: 10px 4px;
+  font-size: 1.4rem; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.item.locked .name-sample { opacity: .4; }
 
 /* ================= Quit popup ================= */
 .quit-card { border-color: var(--sage); }

@@ -118,6 +118,12 @@ const FRAMES = [
   { id: 'legendary', name: 'Legendary', price: 2000 },
 ];
 
+// Name colors: the same colors and prices as the frames (looks live in style.css, .nc-<id>).
+const NAME_COLORS = FRAMES.map((f) => ({
+  id: f.id, price: f.price,
+  name: f.id === 'none' ? 'Default' : f.id === 'classic' ? 'Sage' : f.name,
+}));
+
 const BADGES = [
   { id: 'first',     icon: '🎓', name: 'First Steps',   desc: 'Finish your first course',            test: (p) => p.courses >= 1 },
   { id: 'perfect',   icon: '💯', name: 'Perfect!',      desc: 'Get every question right',            test: (p) => p.perfects >= 1 },
@@ -153,6 +159,12 @@ const fmt = (n) => { const s = String(Number(Number(n).toFixed(2))); return s.st
 const fmtRight = (n) => (n < 0 ? `(${fmt(n)})` : fmt(n));
 const signed = (n) => (n < 0 ? `− ${-n}` : `+ ${n}`);
 const avatarById = (id) => AVATARS.find((a) => a.id === id) || AVATARS[0];
+const escapeHTML = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Give a name element its name color (swaps out any old nc-* class).
+function paintName(el, id) {
+  [...el.classList].filter((c) => c.startsWith('nc-')).forEach((c) => el.classList.remove(c));
+  el.classList.add(`nc-${id || 'none'}`);
+}
 
 function dayKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -210,11 +222,14 @@ function upgradeProfile(p) {
     freezes: 0, subjectStats: {}, daily: {}, badges: [],
     bestCombo: 0, perfects: 0, purchases: 0, speedy: false,
     gemsEarned: p.gems || 0, reviewQueue: [], mode: 'type', typingLevel: 'easy',
+    nameColor: 'none', ownedNameColors: [...FREE_FRAMES],
   };
   Object.entries(defaults).forEach(([k, v]) => { if (p[k] === undefined) p[k] = v; });
   // everyone always owns the free ones, and unknown picks fall back to a free one
   FREE_AVATARS.forEach((id) => { if (!p.ownedAvatars.includes(id)) p.ownedAvatars.push(id); });
   FREE_FRAMES.forEach((id) => { if (!p.ownedFrames.includes(id)) p.ownedFrames.push(id); });
+  FREE_FRAMES.forEach((id) => { if (!p.ownedNameColors.includes(id)) p.ownedNameColors.push(id); });
+  if (!NAME_COLORS.some((c) => c.id === p.nameColor)) p.nameColor = 'none';
   if (!AVATARS.some((a) => a.id === p.avatar)) p.avatar = 'fox';
   if (!FRAMES.some((f) => f.id === p.frame)) p.frame = 'classic';
   return p;
@@ -730,6 +745,7 @@ function renderTopbar() {
   if (!p) return;
   $('gem-count').textContent = p.gems.toLocaleString();
   $('player-name').textContent = p.name;
+  paintName($('player-name'), p.nameColor);
   $('top-avatar').innerHTML = avatarHTML(p.avatar, p.frame, 30);
   $('streak-count').textContent = p.streak;
   const t = fireTier(p.streak);
@@ -966,6 +982,7 @@ function showAccounts() {
   // names go in as text, not HTML
   list.querySelectorAll('.account-item').forEach((b) => {
     b.querySelector('strong').textContent = data.profiles[b.dataset.key].name;
+    paintName(b.querySelector('strong'), data.profiles[b.dataset.key].nameColor);
     b.onclick = () => signInAs(b.dataset.key);
   });
   $('login-form').classList.add('hidden');
@@ -1036,14 +1053,20 @@ $('login-form').addEventListener('submit', (e) => {
   signInAs(key);
 });
 
-// ---------- profile: avatars + frames ----------
-// Tap your avatar/name (top right) to try on, unlock and use avatars and frames.
-let locker = null; // { kind: 'avatar'|'frame', avatar, frame, focus: {kind, id} }
+// ---------- profile: avatars, frames + name colors ----------
+// Tap your avatar/name (top right) to try on, unlock and use cosmetics.
+// Each kind: its item list, which list of owned ids it uses, and which one is in use.
+const COSMETICS = {
+  avatar: { list: AVATARS,     owned: 'ownedAvatars',    using: 'avatar',    label: '' },
+  frame:  { list: FRAMES,      owned: 'ownedFrames',     using: 'frame',     label: ' frame' },
+  name:   { list: NAME_COLORS, owned: 'ownedNameColors', using: 'nameColor', label: ' name color' },
+};
+let locker = null; // { kind, avatar, frame, nameColor (what's being tried on), focus: {kind, id} }
 
 function openProfile() {
   const p = player();
   if (!p) return;
-  locker = { kind: 'avatar', avatar: p.avatar, frame: p.frame, focus: { kind: 'avatar', id: p.avatar } };
+  locker = { kind: 'avatar', avatar: p.avatar, frame: p.frame, nameColor: p.nameColor, focus: { kind: 'avatar', id: p.avatar } };
   renderProfile();
   $('profile-modal').classList.remove('hidden');
   sfx.open();
@@ -1059,18 +1082,22 @@ function renderProfile() {
   const p = player();
   $('pv-avatar').innerHTML = avatarHTML(locker.avatar, locker.frame, 104);
   $('pv-name').textContent = p.name;
+  paintName($('pv-name'), locker.nameColor);
   $('pv-sub').textContent = `${GRADE_NAMES[p.grade]} · ${p.badges.length} badges`;
   $('pv-gems').textContent = p.gems.toLocaleString();
   document.querySelectorAll('#profile-seg button').forEach((b) => b.classList.toggle('active', b.dataset.kind === locker.kind));
 
-  const isAvatar = locker.kind === 'avatar';
-  const items = [...(isAvatar ? AVATARS : FRAMES)].sort((a, b) => a.price - b.price);
-  const owned = isAvatar ? p.ownedAvatars : p.ownedFrames;
-  const using = isAvatar ? p.avatar : p.frame;
+  const kind = COSMETICS[locker.kind];
+  const items = [...kind.list].sort((a, b) => a.price - b.price);
+  const owned = p[kind.owned];
+  const using = p[kind.using];
+  $('item-grid').classList.toggle('names', locker.kind === 'name');
   $('item-grid').innerHTML = items.map((it) => {
     const has = owned.includes(it.id);
     const sel = locker.focus.kind === locker.kind && locker.focus.id === it.id;
-    const face = isAvatar ? avatarHTML(it.id, 'none', 58) : avatarHTML(locker.avatar, it.id, 58);
+    const face = locker.kind === 'avatar' ? avatarHTML(it.id, 'none', 58)
+      : locker.kind === 'frame' ? avatarHTML(locker.avatar, it.id, 58)
+      : `<span class="name-sample nc-${it.id}">${escapeHTML(p.name)}</span>`;
     const tag = !has ? `<span class="item-price">${GEM_SVG}${it.price}</span>`
       : it.id === using ? '<span class="item-tag on">Using</span>'
       : '<span class="item-tag">Owned</span>';
@@ -1082,10 +1109,11 @@ function renderProfile() {
 
   // the button under the preview acts on the item you last tapped
   const f = locker.focus;
-  const item = (f.kind === 'avatar' ? AVATARS : FRAMES).find((x) => x.id === f.id);
-  const has = (f.kind === 'avatar' ? p.ownedAvatars : p.ownedFrames).includes(f.id);
-  const isOn = (f.kind === 'avatar' ? p.avatar : p.frame) === f.id;
-  $('pv-item-name').textContent = f.kind === 'frame' && f.id !== 'none' ? `${item.name} frame` : item.name;
+  const fk = COSMETICS[f.kind];
+  const item = fk.list.find((x) => x.id === f.id);
+  const has = p[fk.owned].includes(f.id);
+  const isOn = p[fk.using] === f.id;
+  $('pv-item-name').textContent = f.id === 'none' ? item.name : item.name + fk.label;
   const btn = $('pv-action');
   btn.disabled = false;
   if (isOn) { btn.textContent = 'Using it ✓'; btn.disabled = true; }
@@ -1107,15 +1135,16 @@ $('item-grid').addEventListener('click', (e) => {
   const b = e.target.closest('.item');
   if (!b || !locker) return;
   const id = b.dataset.id;
-  if (locker.kind === 'avatar') locker.avatar = id; else locker.frame = id;
+  locker[COSMETICS[locker.kind].using] = id; // try it on
   locker.focus = { kind: locker.kind, id };
   renderProfile();
 });
 $('pv-action').onclick = () => {
   const p = player();
   const { kind, id } = locker.focus;
-  const item = (kind === 'avatar' ? AVATARS : FRAMES).find((x) => x.id === id);
-  const owned = kind === 'avatar' ? p.ownedAvatars : p.ownedFrames;
+  const k = COSMETICS[kind];
+  const item = k.list.find((x) => x.id === id);
+  const owned = p[k.owned];
   if (!owned.includes(id)) {
     if (p.gems < item.price) return;
     p.gems -= item.price;
@@ -1127,7 +1156,7 @@ $('pv-action').onclick = () => {
     void pv.offsetWidth;
     pv.classList.add('unlocked');
   }
-  if (kind === 'avatar') p.avatar = id; else p.frame = id;
+  p[k.using] = id;
   save();
   renderTopbar();
   renderProfile();
