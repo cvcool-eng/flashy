@@ -1033,6 +1033,8 @@ body.easy-font .typing-text { letter-spacing: .06em; word-spacing: .12em; }
 #contact-text:focus { border-color: var(--sage); }
 #contact-text.nudge { animation: shake .35s; border-color: #ff9a9a; }
 .contact-card .hint a { color: var(--sage); }
+.contact-more { display: flex; gap: 10px; }
+.contact-more .btn { flex: 1; padding: 10px 8px; }
 
 /* ================= Quit popup ================= */
 .quit-card { border-color: var(--sage); }

@@ -2576,6 +2576,7 @@ document.addEventListener('click', (e) => {
   if (!link) return;
   e.preventDefault();
   $('contact-text').value = '';
+  $('contact-text').classList.remove('nudge');
   $('contact-modal').classList.remove('hidden');
   sfx.open();
   $('contact-text').focus();
@@ -2590,19 +2591,46 @@ function closeContact() {
 }
 $('contact-close').onclick = () => { closeContact(); sfx.close(); };
 $('contact-modal').addEventListener('click', (e) => { if (e.target.id === 'contact-modal') closeContact(); });
+// The typed message, or null (and a shake) if the box is empty.
+function contactMessage() {
+  const box = $('contact-text');
+  const text = box.value.trim();
+  if (text) return text;
+  box.classList.remove('nudge');
+  void box.offsetWidth;
+  box.classList.add('nudge');
+  box.focus();
+  return null;
+}
+// Gmail in the browser: works without any email app installed.
+function contactGmailUrl(text) {
+  const q = new URLSearchParams({ view: 'cm', fs: '1', to: CONTACT_EMAIL, su: 'Message from Flashy', body: `${text}\n\n(Sent from the Flashy website)` });
+  return `https://mail.google.com/mail/?${q}`;
+}
+$('contact-gmail').onclick = () => {
+  const text = contactMessage();
+  if (!text) return;
+  window.open(contactGmailUrl(text), '_blank', 'noopener');
+  closeContact();
+  showBanner('✉️', 'Gmail opened in a new tab with your message. Just tap Send there!');
+};
 $('contact-send').onclick = () => {
-  const text = $('contact-text').value.trim();
-  if (!text) {
-    const box = $('contact-text');
-    box.classList.remove('nudge');
-    void box.offsetWidth;
-    box.classList.add('nudge');
-    box.focus();
-    return;
-  }
+  const text = contactMessage();
+  if (!text) return;
   window.location.href = contactMailto(text);
   closeContact();
   showBanner('✉️', 'Your email app should open with your message. Just tap send!');
+};
+$('contact-copy').onclick = async () => {
+  const text = contactMessage();
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(`To: ${CONTACT_EMAIL}\n\n${text}`);
+    showBanner('📋', `Copied! Paste it into an email to ${CONTACT_EMAIL}`);
+    closeContact();
+  } catch (e) {
+    showBanner('⚠️', `Couldn't copy. Please email ${CONTACT_EMAIL}`);
+  }
 };
 
 // ---------- Parents / Privacy pages ----------
